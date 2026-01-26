@@ -1,0 +1,141 @@
+# Robust .gitignore for lambda-terraform-clean
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.dylib
+*.pyd
+pip-wheel-metadata/
+htmlcov/
+.tox/
+.pytest_cache/
+.coverage
+.coverage.*
+.cache
+.mypy_cache/
+.pytype/
+cython_debug/
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+bin/
+var/
+sdist/
+wheels/
+venv/
+ENV/
+env/
+.venv/
+venv.bak/
+
+# pipenv / poetry
+Pipfile.lock
+poetry.lock
+
+# Virtual environment and env files
+.env
+.env.*
+
+# --- IDEs / Editors ---
+.vscode/
+.idea/
+*.iml
+*.ipr
+*.iws
+*.sublime-workspace
+*.sublime-project
+*.swp
+*~
+
+# --- OS files ---
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+desktop.ini
+
+# --- Node ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- Logs ---
+*.log
+logs/
+*.out
+
+# --- Terraform ---
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfstate
+terraform.tfstate.backup
+*.tfvars
+terraform.tfvars
+terraform.tfvars.json
+.terraform.lock.hcl
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Ignore build folders used in repo
+**/build/
+
+# --- AWS / Serverless / SAM ---
+.serverless/
+.aws-sam/
+.aws/credentials
+.aws/config
+*.zip
+
+# --- Lambda layers and package artifacts ---
+src/**/build/
+modules/**/build/
+infra/**/build/
+
+# --- Docker ---
+docker-compose.override.yml
+docker-compose.*.yml
+
+# --- Packaging ---
+*.egg
+*.egg-info/
+*.whl
+pip-wheel-metadata/
+*.manifest
+*.spec
+
+# --- Coverage & test reports ---
+coverage.xml
+htmlcov/
+.coverage
+.pytest_cache/
+.cache
+
+# --- Misc ---
+*.pid
+*.seed
+*.retry
+celerybeat-schedule
+*.cover
+profile_default/
+ipython_config.py
+.ropeproject
+
+# --- Build artifacts / editor backups ---
+dist/
+build/
+__pycache__/
+*.bak
+*.orig
+
+# Ignore vendored python layer directory
+/src/layers/python/

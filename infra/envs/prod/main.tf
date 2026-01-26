@@ -1,0 +1,184 @@
+provider "aws" {
+  region  = "us-east-1"
+  profile = "pessoal"
+}
+
+# --- 1. LAYER DE DEPENDÊNCIAS (PIP INSTALL) ---
+resource "null_resource" "install_layer" {
+  triggers = {
+    # requirements = filemd5("../../../src/layers/requirements.txt") <-- COMENTE ISSO
+    always_run = timestamp() # <-- ADICIONE ISSO
+  }
+
+  # MANTENHA COMENTADO: Como você fez a instalação manual para Linux no Mac,
+  # não queremos que o Terraform rode o pip local novamente e estrague os binários.
+  # provisioner "local-exec" {
+  #   command = "pip install -r ../../../src/layers/requirements.txt -t ../../../src/layers/python"
+  # }
+}
+
+data "archive_file" "layer_zip" {
+  type        = "zip"
+  source_dir  = "../../../src/layers"
+  output_path = "${path.module}/build/layer.zip"
+  excludes    = ["requirements.txt"]
+  depends_on  = [null_resource.install_layer]
+}
+
+resource "aws_lambda_layer_version" "main_dependencies" {
+  layer_name          = "loja-omena-deps"
+  filename            = data.archive_file.layer_zip.output_path
+  source_code_hash    = data.archive_file.layer_zip.output_base64sha256
+  compatible_runtimes = ["python3.11"]
+}
+
+# --- 1.1 LAYER DE CÓDIGO COMPARTILHADO (SHARED) ---
+resource "null_resource" "package_shared" {
+  triggers = {
+    # Sempre roda para pegar alterações no código compartilhado
+    always_run = timestamp()
+  }
+  provisioner "local-exec" {
+    # Cria pasta python/ e copia o shared para dentro. Lambda adiciona 'python' ao PATH automaticamente.
+    command = "mkdir -p ${path.module}/build/shared_layer/python && cp -R ../../../src/shared ${path.module}/build/shared_layer/python/"
+  }
+}
+
+data "archive_file" "shared_code_zip" {
+  type        = "zip"
+  source_dir  = "${path.module}/build/shared_layer"
+  output_path = "${path.module}/build/shared_code.zip"
+  depends_on  = [null_resource.package_shared]
+}
+
+resource "aws_lambda_layer_version" "shared_code" {
+  layer_name          = "loja-omena-shared-code"
+  filename            = data.archive_file.shared_code_zip.output_path
+  source_code_hash    = data.archive_file.shared_code_zip.output_base64sha256
+  compatible_runtimes = ["python3.11"]
+}
+
+# --- 2. API GATEWAY ---
+resource "aws_apigatewayv2_api" "main" {
+  name          = "loja-omena-api"
+  protocol_type = "HTTP"
+  
+  cors_configuration {
+    allow_origins = ["*"]
+    # Adicionado PUT e DELETE para o Backoffice funcionar
+    allow_methods = ["POST", "GET", "OPTIONS", "PUT", "DELETE"]
+    allow_headers = ["content-type", "x-idempotency-key"]
+    max_age       = 300
+  }
+}
+
+resource "aws_apigatewayv2_stage" "prod" {
+  api_id      = aws_apigatewayv2_api.main.id
+  name        = "$default"
+  auto_deploy = true
+}
+
+# --- 3. MICROSERVIÇO: PAYMENT ---
+module "payment_lambda" {
+  source = "../../modules/lambda_function"
+
+  function_name = "loja-omena-payment"
+  handler       = "handler.lambda_handler"
+  source_dir    = "../../../src/payment"
+  
+  layers = [
+    aws_lambda_layer_version.main_dependencies.arn,
+    aws_lambda_layer_version.shared_code.arn
+  ]
+
+  environment_variables = {
+    # Mantive hardcoded conforme seu snippet, mas idealmente use var.mp_access_token
+    MP_ACCESS_TOKEN = "TEST-3645506064282139-010508-daf199203ea82aa3e7ed6e2daf9e4edb-424720501" 
+    SUPABASE_URL    = var.supabase_url
+    SUPABASE_KEY    = var.supabase_key
+    POWERTOOLS_SERVICE_NAME = "payment"
+  }
+
+  tags = { Project = "LojaOmena", Env = "Prod" }
+}
+
+# Integração Payment
+resource "aws_apigatewayv2_integration" "payment" {
+  api_id           = aws_apigatewayv2_api.main.id
+  integration_type = "AWS_PROXY"
+  integration_uri  = module.payment_lambda.invoke_arn
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_route" "payment" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /pagamento"
+  target    = "integrations/${aws_apigatewayv2_integration.payment.id}"
+}
+
+resource "aws_lambda_permission" "api_gw_payment" {
+  statement_id  = "AllowExecutionFromAPIGateway"
+  action        = "lambda:InvokeFunction"
+  function_name = module.payment_lambda.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*/pagamento"
+}
+
+
+# --- 4. MICROSERVIÇO: PRODUCTS ---
+module "products_lambda" {
+  source = "../../modules/lambda_function"
+
+  function_name = "loja-omena-products"
+  handler       = "handler.lambda_handler"
+  source_dir    = "../../../src/products"
+  
+  layers = [
+    aws_lambda_layer_version.main_dependencies.arn,
+    aws_lambda_layer_version.shared_code.arn
+  ]
+
+  environment_variables = {
+    SUPABASE_URL    = var.supabase_url
+    SUPABASE_KEY    = var.supabase_key
+    POWERTOOLS_SERVICE_NAME = "products"
+  }
+
+  tags = { Project = "LojaOmena", Env = "Prod" }
+}
+
+# Integração Products
+resource "aws_apigatewayv2_integration" "products" {
+  api_id           = aws_apigatewayv2_api.main.id
+  integration_type = "AWS_PROXY"
+  integration_uri  = module.products_lambda.invoke_arn
+  payload_format_version = "2.0"
+}
+
+# Rota 1: Raiz (/produtos) para Listar e Criar (POST)
+resource "aws_apigatewayv2_route" "products_root" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "ANY /produtos" 
+  target    = "integrations/${aws_apigatewayv2_integration.products.id}"
+}
+
+# Rota 2: Proxy (/produtos/123) para Editar (PUT) e Deletar (DELETE)
+resource "aws_apigatewayv2_route" "products_proxy" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "ANY /produtos/{proxy+}" 
+  target    = "integrations/${aws_apigatewayv2_integration.products.id}"
+}
+
+# Permissão Genérica (O * no final permite sub-rotas como /produtos/123)
+resource "aws_lambda_permission" "api_gw_products" {
+  statement_id  = "AllowExecutionFromAPIGateway"
+  action        = "lambda:InvokeFunction"
+  function_name = module.products_lambda.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*/produtos*"
+}
+
+# --- OUTPUT ---
+output "api_url" {
+  value = aws_apigatewayv2_api.main.api_endpoint
+}
