@@ -2,7 +2,7 @@ import json
 import pytest
 from unittest.mock import patch, MagicMock
 
-from handler import lambda_handler
+from src.products.handler import lambda_handler
 
 
 def _event(
@@ -30,7 +30,7 @@ def _context():
 
 @pytest.fixture
 def mock_service():
-    with patch("handler.ProductService") as mock_cls:
+    with patch("src.products.handler.ProductService") as mock_cls:
         instance = MagicMock()
         mock_cls.return_value = instance
         yield instance
@@ -187,7 +187,7 @@ class TestHandlerPost:
     def test_post_parse_fails_returns_500(
         self, mock_service: MagicMock
     ) -> None:
-        with patch("handler.parse", side_effect=ValueError("body inválido")):
+        with patch("src.products.handler.parse", side_effect=ValueError("body inválido")):
             event = _event("POST", body='{"invalid": true}')
             resp = lambda_handler(event, _context())
 

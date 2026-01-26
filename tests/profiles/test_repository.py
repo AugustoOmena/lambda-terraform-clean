@@ -1,14 +1,14 @@
 import pytest
 from unittest.mock import patch, MagicMock
 
-from repository import ProfileRepository
-from schemas import ProfileFilter
+from src.profiles.repository import ProfileRepository
+from src.profiles.schemas import ProfileFilter
 
 
 @pytest.fixture
 def mock_supabase_client():
     """Mock do cliente Supabase com estrutura encadeada de métodos."""
-    with patch("repository.get_supabase_client") as mock_get_client:
+    with patch("src.profiles.repository.get_supabase_client") as mock_get_client:
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
         yield mock_client

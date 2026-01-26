@@ -2,14 +2,14 @@ import pytest
 from decimal import Decimal
 from unittest.mock import patch, MagicMock, call
 
-from service import PaymentService
-from schemas import PaymentInput, Payer, Identification, Item
+from src.payment.service import PaymentService
+from src.payment.schemas import PaymentInput, Payer, Identification, Item
 
 
 @pytest.fixture
 def mock_repository():
     """Mock do PaymentRepository para todos os métodos."""
-    with patch("service.PaymentRepository") as mock_repo_class:
+    with patch("src.payment.service.PaymentRepository") as mock_repo_class:
         mock_instance = MagicMock()
         mock_repo_class.return_value = mock_instance
         yield mock_instance
@@ -18,7 +18,7 @@ def mock_repository():
 @pytest.fixture
 def mock_mercadopago():
     """Mock do Mercado Pago SDK."""
-    with patch("service.mercadopago") as mock_mp_module:
+    with patch("src.payment.service.mercadopago") as mock_mp_module:
         # Mock da classe SDK
         mock_sdk_instance = MagicMock()
         mock_mp_module.SDK.return_value = mock_sdk_instance
@@ -384,7 +384,7 @@ class TestPaymentServiceIntegration:
         Esperado: Endereço é enviado ao MP no formato correto.
         """
         # Arrange
-        from schemas import Address
+        from src.payment.schemas import Address
         
         payload_with_address = PaymentInput(
             transaction_amount=50.00,

@@ -2,14 +2,14 @@ import pytest
 from decimal import Decimal
 from unittest.mock import patch, MagicMock
 
-from service import PaymentService
-from schemas import PaymentInput, Payer, Identification, Item
+from src.payment.service import PaymentService
+from src.payment.schemas import PaymentInput, Payer, Identification, Item
 
 
 @pytest.fixture
 def mock_repository():
     """Mock do PaymentRepository para isolar testes da auditoria de preços."""
-    with patch("service.PaymentRepository") as mock_repo_class:
+    with patch("src.payment.service.PaymentRepository") as mock_repo_class:
         mock_instance = MagicMock()
         mock_repo_class.return_value = mock_instance
         yield mock_instance
@@ -18,7 +18,7 @@ def mock_repository():
 @pytest.fixture
 def mock_mercadopago():
     """Mock do Mercado Pago SDK para focar apenas na auditoria."""
-    with patch("service.mercadopago.SDK") as mock_mp:
+    with patch("src.payment.service.mercadopago.SDK") as mock_mp:
         yield mock_mp
 
 

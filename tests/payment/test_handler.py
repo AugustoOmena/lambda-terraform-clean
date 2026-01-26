@@ -2,13 +2,13 @@ import json
 import pytest
 from unittest.mock import patch, MagicMock
 
-from handler import lambda_handler
+from src.payment.handler import lambda_handler
 
 
 @pytest.fixture
 def mock_payment_service():
     """Mock da classe PaymentService para evitar lógica real."""
-    with patch("handler.PaymentService") as mock_service_class:
+    with patch("src.payment.handler.PaymentService") as mock_service_class:
         mock_instance = MagicMock()
         mock_service_class.return_value = mock_instance
         yield mock_instance
@@ -17,7 +17,7 @@ def mock_payment_service():
 @pytest.fixture
 def mock_logger():
     """Mock do Logger para não poluir o terminal."""
-    with patch("handler.logger") as mock_log:
+    with patch("src.payment.handler.logger") as mock_log:
         yield mock_log
 
 
@@ -102,7 +102,7 @@ class TestPaymentLambdaHandler:
         Esperado: Retorna statusCode 400 com mensagem de erro.
         """
         # Arrange: Mock do parse para lançar ValidationError
-        with patch("handler.parse") as mock_parse:
+        with patch("src.payment.handler.parse") as mock_parse:
             from pydantic import ValidationError
             
             # Simula erro de validação do Pydantic
@@ -138,7 +138,7 @@ class TestPaymentLambdaHandler:
         Esperado: Retorna statusCode 400.
         """
         # Arrange: Mock do parse para simular JSON inválido
-        with patch("handler.parse") as mock_parse:
+        with patch("src.payment.handler.parse") as mock_parse:
             mock_parse.side_effect = ValueError("Invalid JSON format")
             
             event = {

@@ -3,8 +3,8 @@ from aws_lambda_powertools.utilities.parser import parse
 from shared.responses import http_response
 import json
 
-from service import ProductService
-from schemas import ProductInput, ProductUpdate
+from src.products.service import ProductService
+from src.products.schemas import ProductInput, ProductUpdate
 
 logger = Logger(service="products")
 

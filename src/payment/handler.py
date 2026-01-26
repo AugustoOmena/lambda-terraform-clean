@@ -3,8 +3,8 @@ from aws_lambda_powertools.utilities.parser import parse
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
 from shared.responses import http_response
-from schemas import PaymentInput
-from service import PaymentService
+from src.payment.schemas import PaymentInput
+from src.payment.service import PaymentService
 
 # Inicializa Logs Profissionais (JSON estruturado)
 logger = Logger(service="payment")

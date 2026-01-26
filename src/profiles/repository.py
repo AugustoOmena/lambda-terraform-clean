@@ -1,5 +1,5 @@
 from shared.database import get_supabase_client
-from schemas import ProfileFilter
+from src.profiles.schemas import ProfileFilter
 
 
 class ProfileRepository:

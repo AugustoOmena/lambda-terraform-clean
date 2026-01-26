@@ -1,14 +1,14 @@
 import pytest
 from unittest.mock import patch, MagicMock, call
 
-from repository import PaymentRepository
-from schemas import Item
+from src.payment.repository import PaymentRepository
+from src.payment.schemas import Item
 
 
 @pytest.fixture
 def mock_supabase_client():
     """Mock do cliente Supabase com estrutura encadeada de métodos."""
-    with patch("repository.get_supabase_client") as mock_get_client:
+    with patch("src.payment.repository.get_supabase_client") as mock_get_client:
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
         yield mock_client
@@ -307,7 +307,7 @@ class TestPaymentRepositoryCreateOrder:
         mock_insert_items.execute.return_value = mock_execute_items
         
         # Payloads simulados
-        from schemas import PaymentInput, Payer, Identification
+        from src.payment.schemas import PaymentInput, Payer, Identification
         payload = PaymentInput(
             transaction_amount=150.00,
             payment_method_id="pix",
@@ -376,7 +376,7 @@ class TestPaymentRepositoryCreateOrder:
         mock_insert.execute.return_value = mock_execute
         mock_execute.data = []  # Falha ao salvar
         
-        from schemas import PaymentInput, Payer, Identification
+        from src.payment.schemas import PaymentInput, Payer, Identification
         payload = PaymentInput(
             transaction_amount=100.00,
             payment_method_id="pix",
@@ -412,7 +412,7 @@ class TestPaymentRepositoryCreateOrder:
         mock_insert.execute.return_value = mock_execute
         mock_execute.data = [{"id": "order-empty-items"}]
         
-        from schemas import PaymentInput, Payer, Identification
+        from src.payment.schemas import PaymentInput, Payer, Identification
         payload = PaymentInput(
             transaction_amount=0.00,
             payment_method_id="pix",

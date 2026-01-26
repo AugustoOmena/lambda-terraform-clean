@@ -1,13 +1,13 @@
 import pytest
 from unittest.mock import patch, MagicMock
 
-from service import ProductService
-from schemas import ProductInput, ProductUpdate
+from src.products.service import ProductService
+from src.products.schemas import ProductInput, ProductUpdate
 
 
 @pytest.fixture
 def mock_repository():
-    with patch("service.ProductRepository") as mock_repo_class:
+    with patch("src.products.service.ProductRepository") as mock_repo_class:
         mock_instance = MagicMock()
         mock_repo_class.return_value = mock_instance
         yield mock_instance

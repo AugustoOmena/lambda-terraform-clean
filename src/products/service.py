@@ -1,7 +1,7 @@
 import io
 import csv
-from repository import ProductRepository
-from schemas import ProductInput, ProductUpdate
+from src.products.repository import ProductRepository
+from src.products.schemas import ProductInput, ProductUpdate
 
 class ProductService:
     def __init__(self):

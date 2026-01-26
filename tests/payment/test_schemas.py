@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from schemas import Identification, Address, Payer, Item, PaymentInput
+from src.payment.schemas import Identification, Address, Payer, Item, PaymentInput
 
 
 class TestIdentificationValidation:
