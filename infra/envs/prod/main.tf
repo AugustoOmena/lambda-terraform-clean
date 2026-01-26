@@ -62,7 +62,7 @@ resource "aws_lambda_layer_version" "shared_code" {
 resource "aws_apigatewayv2_api" "main" {
   name          = "loja-omena-api"
   protocol_type = "HTTP"
-  
+
   cors_configuration {
     allow_origins = ["*"]
     # Adicionado PUT e DELETE para o Backoffice funcionar
@@ -85,7 +85,7 @@ module "payment_lambda" {
   function_name = "loja-omena-payment"
   handler       = "handler.lambda_handler"
   source_dir    = "../../../src/payment"
-  
+
   layers = [
     aws_lambda_layer_version.main_dependencies.arn,
     aws_lambda_layer_version.shared_code.arn
@@ -93,9 +93,9 @@ module "payment_lambda" {
 
   environment_variables = {
     # Mantive hardcoded conforme seu snippet, mas idealmente use var.mp_access_token
-    MP_ACCESS_TOKEN = "TEST-3645506064282139-010508-daf199203ea82aa3e7ed6e2daf9e4edb-424720501" 
-    SUPABASE_URL    = var.supabase_url
-    SUPABASE_KEY    = var.supabase_key
+    MP_ACCESS_TOKEN         = "TEST-3645506064282139-010508-daf199203ea82aa3e7ed6e2daf9e4edb-424720501"
+    SUPABASE_URL            = var.supabase_url
+    SUPABASE_KEY            = var.supabase_key
     POWERTOOLS_SERVICE_NAME = "payment"
   }
 
@@ -104,9 +104,9 @@ module "payment_lambda" {
 
 # Integração Payment
 resource "aws_apigatewayv2_integration" "payment" {
-  api_id           = aws_apigatewayv2_api.main.id
-  integration_type = "AWS_PROXY"
-  integration_uri  = module.payment_lambda.invoke_arn
+  api_id                 = aws_apigatewayv2_api.main.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = module.payment_lambda.invoke_arn
   payload_format_version = "2.0"
 }
 
@@ -132,15 +132,15 @@ module "products_lambda" {
   function_name = "loja-omena-products"
   handler       = "handler.lambda_handler"
   source_dir    = "../../../src/products"
-  
+
   layers = [
     aws_lambda_layer_version.main_dependencies.arn,
     aws_lambda_layer_version.shared_code.arn
   ]
 
   environment_variables = {
-    SUPABASE_URL    = var.supabase_url
-    SUPABASE_KEY    = var.supabase_key
+    SUPABASE_URL            = var.supabase_url
+    SUPABASE_KEY            = var.supabase_key
     POWERTOOLS_SERVICE_NAME = "products"
   }
 
@@ -149,23 +149,23 @@ module "products_lambda" {
 
 # Integração Products
 resource "aws_apigatewayv2_integration" "products" {
-  api_id           = aws_apigatewayv2_api.main.id
-  integration_type = "AWS_PROXY"
-  integration_uri  = module.products_lambda.invoke_arn
+  api_id                 = aws_apigatewayv2_api.main.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = module.products_lambda.invoke_arn
   payload_format_version = "2.0"
 }
 
 # Rota 1: Raiz (/produtos) para Listar e Criar (POST)
 resource "aws_apigatewayv2_route" "products_root" {
   api_id    = aws_apigatewayv2_api.main.id
-  route_key = "ANY /produtos" 
+  route_key = "ANY /produtos"
   target    = "integrations/${aws_apigatewayv2_integration.products.id}"
 }
 
 # Rota 2: Proxy (/produtos/123) para Editar (PUT) e Deletar (DELETE)
 resource "aws_apigatewayv2_route" "products_proxy" {
   api_id    = aws_apigatewayv2_api.main.id
-  route_key = "ANY /produtos/{proxy+}" 
+  route_key = "ANY /produtos/{proxy+}"
   target    = "integrations/${aws_apigatewayv2_integration.products.id}"
 }
 
@@ -176,6 +176,59 @@ resource "aws_lambda_permission" "api_gw_products" {
   function_name = module.products_lambda.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*/produtos*"
+}
+
+# --- 5. MICROSERVIÇO: PROFILES (Gerenciamento de Usuários - Backoffice) ---
+module "profiles_lambda" {
+  source = "../../modules/lambda_function"
+
+  function_name = "loja-omena-profiles"
+  handler       = "handler.lambda_handler"
+  source_dir    = "../../../src/profiles"
+
+  layers = [
+    aws_lambda_layer_version.main_dependencies.arn,
+    aws_lambda_layer_version.shared_code.arn
+  ]
+
+  environment_variables = {
+    SUPABASE_URL            = var.supabase_url
+    SUPABASE_KEY            = var.supabase_key
+    POWERTOOLS_SERVICE_NAME = "profiles"
+  }
+
+  tags = { Project = "LojaOmena", Env = "Prod" }
+}
+
+# Integração Profiles
+resource "aws_apigatewayv2_integration" "profiles" {
+  api_id                 = aws_apigatewayv2_api.main.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = module.profiles_lambda.invoke_arn
+  payload_format_version = "2.0"
+}
+
+# Rota 1: Raiz (/usuarios) para Listar (GET), Atualizar (PUT) e Deletar (DELETE)
+resource "aws_apigatewayv2_route" "profiles_root" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "ANY /usuarios"
+  target    = "integrations/${aws_apigatewayv2_integration.profiles.id}"
+}
+
+# Rota 2: Proxy (/usuarios/{id}) para operações específicas (se necessário)
+resource "aws_apigatewayv2_route" "profiles_proxy" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "ANY /usuarios/{proxy+}"
+  target    = "integrations/${aws_apigatewayv2_integration.profiles.id}"
+}
+
+# Permissão Genérica
+resource "aws_lambda_permission" "api_gw_profiles" {
+  statement_id  = "AllowExecutionFromAPIGateway"
+  action        = "lambda:InvokeFunction"
+  function_name = module.profiles_lambda.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*/usuarios*"
 }
 
 # --- OUTPUT ---

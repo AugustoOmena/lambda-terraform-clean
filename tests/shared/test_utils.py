@@ -28,8 +28,8 @@ class TestHttpResponse:
         assert "headers" in response
         assert response["headers"]["Content-Type"] == "application/json"
         assert response["headers"]["Access-Control-Allow-Origin"] == "*"
-        assert response["headers"]["Access-Control-Allow-Methods"] == "POST, OPTIONS"
-        assert response["headers"]["Access-Control-Allow-Headers"] == "Content-Type"
+        assert response["headers"]["Access-Control-Allow-Methods"] == "GET, POST, PUT, DELETE, OPTIONS"
+        assert response["headers"]["Access-Control-Allow-Headers"] == "Content-Type, Authorization"
         
         # Body deve ser string JSON
         assert isinstance(response["body"], str)
