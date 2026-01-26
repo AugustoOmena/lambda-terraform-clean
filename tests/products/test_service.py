@@ -45,7 +45,8 @@ class TestCreateProduct:
 
         call_args = mock_repository.create.call_args[0][0]
         assert call_args["name"] == "Calça"
-        assert call_args["price"] == 99.90
+        # price agora é Decimal (alinhado com banco NUMERIC)
+        assert float(call_args["price"]) == 99.90
         assert call_args["description"] == "Confortável"
         assert call_args["category"] == "Roupas"
         # exclude_none=True remove campos None; valores default como 0 ou [] permanecem
@@ -226,7 +227,11 @@ class TestUpdateProduct:
         result = service.update_product(1, payload)
 
         assert result == expected
-        mock_repository.update.assert_called_once_with(1, {"name": "Atualizado", "price": 49.90})
+        # Verifica que update foi chamado com os valores corretos (price agora é Decimal)
+        call_args = mock_repository.update.call_args[0]
+        assert call_args[0] == 1
+        assert call_args[1]["name"] == "Atualizado"
+        assert float(call_args[1]["price"]) == 49.90
 
     def test_update_product_deletes_old_image_when_image_changes(
         self, mock_repository: MagicMock
