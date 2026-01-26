@@ -1,5 +1,4 @@
 import json
-from aws_lambda_powertools.utilities.typing import LambdaContext
 
 def http_response(status_code: int, body: dict) -> dict:
     return {
