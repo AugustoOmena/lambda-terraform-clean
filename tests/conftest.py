@@ -2,9 +2,8 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock
 
-# Garante que src/products e src (para shared) estejam no path
+# Garante que src e src/shared estejam no path
 _root = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(_root / "src" / "products"))
 sys.path.insert(0, str(_root / "src"))
 
 # Mock supabase para permitir import de shared.database (usado por repository)
@@ -20,3 +19,9 @@ if "aws_lambda_powertools" not in sys.modules:
     sys.modules["aws_lambda_powertools.utilities"] = MagicMock()
     sys.modules["aws_lambda_powertools.utilities.parser"] = MagicMock()
     sys.modules["aws_lambda_powertools.utilities.typing"] = MagicMock()
+
+# Mock mercadopago para testes de payment
+if "mercadopago" not in sys.modules:
+    _mp = MagicMock()
+    _mp.config.RequestOptions = MagicMock
+    sys.modules["mercadopago"] = _mp

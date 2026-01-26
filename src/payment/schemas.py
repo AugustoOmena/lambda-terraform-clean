@@ -1,12 +1,14 @@
 from typing import List, Optional
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 class Identification(BaseModel):
     type: str = Field(default="CPF", description="Tipo de documento")
     number: str = Field(..., description="Número do documento")
 
-    @validator('number')
-    def clean_number(cls, v):
+    @field_validator('number')
+    @classmethod
+    def clean_number(cls, v: str) -> str:
+        """Remove caracteres não-numéricos do número do documento."""
         return ''.join(filter(str.isdigit, v))
 
 # NOVO: Classe de Endereço
