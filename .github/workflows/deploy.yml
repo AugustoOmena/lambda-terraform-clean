@@ -1,0 +1,77 @@
+name: Deploy Infraestrutura (Terraform)
+
+on:
+  push:
+    branches:
+      - main # Aplica mudanças quando entra na main
+  pull_request:
+    branches:
+      - main # Apenas planeja (Plan) quando abre PR
+
+permissions:
+  contents: read
+
+jobs:
+  terraform:
+    name: "Terraform Build & Deploy"
+    runs-on: ubuntu-latest
+
+    # Define o diretório onde está o main.tf (se estiver na raiz, deixe . )
+    defaults:
+      run:
+        working-directory: .
+
+    steps:
+      # 1. Baixa o código do repositório
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      # 2. Configura Python (para instalar dependências da Layer)
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      # 3. Configura Terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.0
+
+      # 4. Constrói a Lambda Layer (Caminhos corrigidos para src/)
+      - name: Build Lambda Layer
+        run: |
+          echo "Instalando dependências na pasta da layer..."
+
+          # Garante que a pasta 'python' exista dentro de src/layers
+          mkdir -p src/layers/python
+
+          # Instala as libs DE src/layers/requirements.txt PARA src/layers/python
+          pip install -r src/layers/requirements.txt -t src/layers/python --upgrade
+
+      # 5. Inicializa o Terraform (Baixa plugins e conecta no S3)
+      - name: Terraform Init
+        env:
+          # Credenciais vindas dos Segredos do GitHub
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: terraform init
+
+      # 6. Valida formatação (Opcional, mas bom pra limpeza)
+      - name: Terraform Format
+        run: terraform fmt -check
+
+      # 7. Gera o Plano (Mostra o que vai mudar)
+      - name: Terraform Plan
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: terraform plan -input=false
+
+      # 8. Aplica (Apenas se for push na Main e não for PR)
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: terraform apply -auto-approve -input=false
