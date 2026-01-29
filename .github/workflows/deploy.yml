@@ -16,30 +16,31 @@ jobs:
     name: "Terraform Build & Deploy"
     runs-on: ubuntu-latest
 
-    # --- MUDANÇA CRÍTICA AQUI ---
-    # Definindo as variáveis GLOBALMENTE para este Job.
-    # Assim, o 'terraform init' já nasce sabendo a senha da AWS.
+    # Mantemos as variáveis do TF aqui, mas as da AWS vão via Action
     env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      # Variáveis do Terraform (TF_VAR)
       TF_VAR_supabase_url: ${{ secrets.TF_VAR_SUPABASE_URL }}
       TF_VAR_supabase_key: ${{ secrets.TF_VAR_SUPABASE_KEY }}
       TF_VAR_firebase_project_id: ${{ secrets.TF_VAR_FIREBASE_PROJECT_ID }}
       TF_VAR_firebase_client_email: ${{ secrets.TF_VAR_FIREBASE_CLIENT_EMAIL }}
       TF_VAR_firebase_private_key: ${{ secrets.TF_VAR_FIREBASE_PRIVATE_KEY }}
       TF_VAR_firebase_database_url: ${{ secrets.TF_VAR_FIREBASE_DATABASE_URL }}
-      # Adicione o token do MP se tiver criado o segredo
-      # TF_VAR_mp_access_token: ${{ secrets.TF_VAR_MP_ACCESS_TOKEN }}
 
-    # Define o diretório padrão para onde está o main.tf
     defaults:
       run:
-        working-directory: ./infra/envs/prod # <--- CONFIRME SE O CAMINHO ESTÁ CERTO!
+        working-directory: ./infra/envs/prod
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
+
+      # --- A MUDANÇA MÁGICA ---
+      # Configura as credenciais explicitamente antes de tudo
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
 
       - name: Setup Python
         uses: actions/setup-python@v4
@@ -50,8 +51,9 @@ jobs:
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.5.0
+          # Importante: Desabilita o wrapper para evitar conflitos de output, as vezes ajuda
+          terraform_wrapper: false
 
-      # Este passo roda na raiz (.) para achar src/layers
       - name: Build Lambda Layer
         working-directory: .
         run: |
@@ -59,7 +61,6 @@ jobs:
           mkdir -p src/layers/python
           pip install -r src/layers/requirements.txt -t src/layers/python --upgrade
 
-      # Agora o Init vai funcionar porque já tem as credenciais do 'env' global
       - name: Terraform Init
         run: terraform init
 
