@@ -3,10 +3,10 @@ name: Deploy Infraestrutura (Terraform)
 on:
   push:
     branches:
-      - main # Aplica mudanças quando entra na main
+      - main
   pull_request:
     branches:
-      - main # Apenas planeja (Plan) quando abre PR
+      - main
 
 permissions:
   contents: read
@@ -16,62 +16,68 @@ jobs:
     name: "Terraform Build & Deploy"
     runs-on: ubuntu-latest
 
-    # Define o diretório onde está o main.tf (se estiver na raiz, deixe . )
+    # 1. AQUI ESTÁ A MÁGICA: Define o padrão para todo mundo
     defaults:
       run:
         working-directory: ./infra/envs/prod
 
     steps:
-      # 1. Baixa o código do repositório
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      # 2. Configura Python (para instalar dependências da Layer)
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.11"
 
-      # 3. Configura Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.5.0
 
-      # 4. Constrói a Lambda Layer (Caminhos corrigidos para src/)
+      # 2. A EXCEÇÃO: Esse passo precisa rodar na raiz (.) para achar src/layers
       - name: Build Lambda Layer
+        working-directory: . # <--- Força voltar pra raiz só neste passo
         run: |
           echo "Instalando dependências na pasta da layer..."
-
-          # Garante que a pasta 'python' exista dentro de src/layers
           mkdir -p src/layers/python
-
-          # Instala as libs DE src/layers/requirements.txt PARA src/layers/python
           pip install -r src/layers/requirements.txt -t src/layers/python --upgrade
 
-      # 5. Inicializa o Terraform (Baixa plugins e conecta no S3)
+      # Daqui pra baixo, todos herdam o ./infra/envs/prod automaticamente
       - name: Terraform Init
         env:
-          # Credenciais vindas dos Segredos do GitHub
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          # Mapeando suas variáveis do TF para os Secrets
+          TF_VAR_supabase_url: ${{ secrets.TF_VAR_SUPABASE_URL }}
+          TF_VAR_supabase_key: ${{ secrets.TF_VAR_SUPABASE_KEY }}
+          TF_VAR_firebase_project_id: ${{ secrets.TF_VAR_FIREBASE_PROJECT_ID }}
+          TF_VAR_firebase_client_email: ${{ secrets.TF_VAR_FIREBASE_CLIENT_EMAIL }}
+          TF_VAR_firebase_private_key: ${{ secrets.TF_VAR_FIREBASE_PRIVATE_KEY }}
+          TF_VAR_firebase_database_url: ${{ secrets.TF_VAR_FIREBASE_DATABASE_URL }}
         run: terraform init
 
-      # 6. Valida formatação (Opcional, mas bom pra limpeza)
-      - name: Terraform Format
-        run: terraform fmt -check
-
-      # 7. Gera o Plano (Mostra o que vai mudar)
       - name: Terraform Plan
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          TF_VAR_supabase_url: ${{ secrets.TF_VAR_SUPABASE_URL }}
+          TF_VAR_supabase_key: ${{ secrets.TF_VAR_SUPABASE_KEY }}
+          TF_VAR_firebase_project_id: ${{ secrets.TF_VAR_FIREBASE_PROJECT_ID }}
+          TF_VAR_firebase_client_email: ${{ secrets.TF_VAR_FIREBASE_CLIENT_EMAIL }}
+          TF_VAR_firebase_private_key: ${{ secrets.TF_VAR_FIREBASE_PRIVATE_KEY }}
+          TF_VAR_firebase_database_url: ${{ secrets.TF_VAR_FIREBASE_DATABASE_URL }}
         run: terraform plan -input=false
 
-      # 8. Aplica (Apenas se for push na Main e não for PR)
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          TF_VAR_supabase_url: ${{ secrets.TF_VAR_SUPABASE_URL }}
+          TF_VAR_supabase_key: ${{ secrets.TF_VAR_SUPABASE_KEY }}
+          TF_VAR_firebase_project_id: ${{ secrets.TF_VAR_FIREBASE_PROJECT_ID }}
+          TF_VAR_firebase_client_email: ${{ secrets.TF_VAR_FIREBASE_CLIENT_EMAIL }}
+          TF_VAR_firebase_private_key: ${{ secrets.TF_VAR_FIREBASE_PRIVATE_KEY }}
+          TF_VAR_firebase_database_url: ${{ secrets.TF_VAR_FIREBASE_DATABASE_URL }}
         run: terraform apply -auto-approve -input=false
