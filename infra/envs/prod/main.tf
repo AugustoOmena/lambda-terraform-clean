@@ -1,3 +1,16 @@
+terraform {
+  required_version = ">= 1.0.0" # Boa prática
+
+  backend "s3" {
+    bucket = "augusto-omena-tfstate"   # <--- O NOME QUE VOCÊ CRIOU
+    key    = "backend/terraform.tfstate" # O caminho dentro do bucket (organização)
+    region = "us-east-1"
+    
+    # Opcional (Recomendado): Encripta o arquivo em repouso
+    encrypt = true 
+  }
+}
+
 provider "aws" {
   region  = "us-east-1"
   profile = "pessoal"
@@ -141,6 +154,10 @@ module "products_lambda" {
   environment_variables = {
     SUPABASE_URL            = var.supabase_url
     SUPABASE_KEY            = var.supabase_key
+    FIREBASE_PROJECT_ID     = var.firebase_project_id
+    FIREBASE_CLIENT_EMAIL   = var.firebase_client_email
+    FIREBASE_PRIVATE_KEY    = var.firebase_private_key
+    FIREBASE_DATABASE_URL   = var.firebase_database_url
     POWERTOOLS_SERVICE_NAME = "products"
   }
 

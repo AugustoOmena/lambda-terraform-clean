@@ -1,7 +1,7 @@
 import mercadopago
 import os
 from decimal import Decimal, ROUND_HALF_UP
-from src.payment.repository import PaymentRepository
+from repository import PaymentRepository
 
 class PaymentService:
     def __init__(self):

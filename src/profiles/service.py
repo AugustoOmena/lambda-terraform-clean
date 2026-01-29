@@ -1,5 +1,5 @@
-from src.profiles.repository import ProfileRepository
-from src.profiles.schemas import ProfileFilter, ProfileUpdate, ProfileDelete
+from repository import ProfileRepository
+from schemas import ProfileFilter, ProfileUpdate, ProfileDelete
 
 
 class ProfileService:

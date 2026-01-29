@@ -2,8 +2,8 @@ from aws_lambda_powertools import Logger
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
 from shared.responses import http_response
-from src.profiles.schemas import ProfileFilter, ProfileUpdate, ProfileDelete
-from src.profiles.service import ProfileService
+from schemas import ProfileFilter, ProfileUpdate, ProfileDelete
+from service import ProfileService
 
 # Inicializa Logger estruturado
 logger = Logger(service="profiles")

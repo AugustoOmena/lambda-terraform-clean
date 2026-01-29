@@ -4,3 +4,4 @@ aws-lambda-powertools  # A cereja do bolo para logs profissionais
 pydantic               # Para validação de dados
 requests
 email-validator
+firebase-admin

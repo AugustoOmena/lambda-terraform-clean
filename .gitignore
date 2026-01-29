@@ -139,3 +139,8 @@ __pycache__/
 
 # Ignore vendored python layer directory
 /src/layers/python/
+
+
+.cursorrules
+.python-version
+/README.md
