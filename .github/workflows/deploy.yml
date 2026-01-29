@@ -19,7 +19,7 @@ jobs:
     # Define o diretório onde está o main.tf (se estiver na raiz, deixe . )
     defaults:
       run:
-        working-directory: .
+        working-directory: ./infra/envs/prod
 
     steps:
       # 1. Baixa o código do repositório
