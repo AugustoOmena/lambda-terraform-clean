@@ -58,7 +58,7 @@ jobs:
         working-directory: .
         run: |
           mkdir -p src/layers/python
-          docker run --rm -v $PWD:/var/task \
+          docker run --rm --entrypoint "" -v $PWD:/var/task \
             public.ecr.aws/lambda/python:3.11 \
             pip install -r /var/task/src/layers/requirements.txt -t /var/task/src/layers/python --upgrade
 
