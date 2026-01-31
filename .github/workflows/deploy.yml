@@ -54,12 +54,13 @@ jobs:
           # Importante: Desabilita o wrapper para evitar conflitos de output, as vezes ajuda
           terraform_wrapper: false
 
-      - name: Build Lambda Layer
+      - name: Build Lambda Layer (Amazon Linux 2 compatible)
         working-directory: .
         run: |
-          echo "Instalando dependências na pasta da layer..."
           mkdir -p src/layers/python
-          pip install -r src/layers/requirements.txt -t src/layers/python --upgrade
+          docker run --rm -v $PWD:/var/task \
+            public.ecr.aws/lambda/python:3.11 \
+            pip install -r /var/task/src/layers/requirements.txt -t /var/task/src/layers/python --upgrade
 
       - name: Terraform Init
         run: terraform init
