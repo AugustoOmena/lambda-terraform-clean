@@ -45,6 +45,24 @@ class OrderRepository:
         )
         return {"data": res.data or [], "count": res.count or 0}
 
+    def list_all_orders(self, page: int = 1, limit: int = 20) -> dict[str, Any]:
+        """List all orders (backoffice admin). Same simplified fields + user_id."""
+        start = (page - 1) * limit
+        end = start + limit - 1
+        res = (
+            self.db.table("orders")
+            .select("id, user_id, status, total_amount, created_at, payment_method", count="exact")
+            .order("created_at", desc=True)
+            .range(start, end)
+            .execute()
+        )
+        return {"data": res.data or [], "count": res.count or 0}
+
+    def get_profile_role(self, user_id: str) -> Optional[str]:
+        """Fetch profile role by user_id (for admin check)."""
+        res = self.db.table("profiles").select("role").eq("id", user_id).execute()
+        return res.data[0].get("role") if res.data else None
+
     def get_order_items_by_ids(self, order_id: str, item_ids: list[str]) -> list[dict[str, Any]]:
         """Fetch order_items by ids belonging to order_id."""
         if not item_ids:

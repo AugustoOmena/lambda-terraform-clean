@@ -3,7 +3,7 @@ Handler for orders microservice.
 
 Routes:
 - GET /pedidos/{order_id}?user_id=...  Customer: full order detail
-- GET /pedidos?user_id=...&page=&limit=  Customer: simplified list
+- GET /pedidos?user_id=...&page=&limit=  Customer: simplified list; Backoffice (X-Backoffice: true): list all if user role admin
 - POST /pedidos/{order_id}/solicitar-cancelamento  Customer: cancel/refund request (7 days)
 - PUT /pedidos/{order_id}  Backoffice: cancel items, MP refund or voucher (header X-Backoffice: true)
 """
@@ -42,10 +42,20 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
                     return http_response(400, {"error": "user_id obrigatório para ver detalhe do pedido"})
                 result = service.get_order_detail(order_id, user_id)
                 return http_response(200, result)
-            if not user_id:
-                return http_response(400, {"error": "user_id obrigatório para listar pedidos"})
             page = int(query_params.get("page", 1))
             limit = int(query_params.get("limit", 20))
+            is_backoffice = (
+                (event.get("headers") or {}).get("x-backoffice", "").lower() == "true"
+                or (event.get("headers") or {}).get("X-Backoffice", "").lower() == "true"
+            )
+            if is_backoffice and user_id:
+                try:
+                    result = service.list_all_orders_for_admin(user_id, page=page, limit=limit)
+                except PermissionError as e:
+                    return http_response(403, {"error": str(e)})
+                return http_response(200, result)
+            if not user_id:
+                return http_response(400, {"error": "user_id obrigatório para listar pedidos"})
             result = service.list_orders_by_customer(user_id, page=page, limit=limit)
             return http_response(200, result)
 
