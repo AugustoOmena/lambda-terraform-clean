@@ -54,7 +54,36 @@ CREATE TABLE IF NOT EXISTS order_items (
     image_url TEXT
 );
 
+-- 5. Vouchers (cupom de desconto: código 5 caracteres, validade)
+CREATE TABLE IF NOT EXISTS vouchers (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    code TEXT NOT NULL UNIQUE,
+    amount NUMERIC NOT NULL,
+    order_id UUID REFERENCES orders(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+    valid_until TIMESTAMP WITH TIME ZONE NOT NULL,
+    used_at TIMESTAMP WITH TIME ZONE
+);
+
+-- 6. Order Refunds (solicitações de cancelamento/reembolso e reembolsos backoffice)
+CREATE TABLE IF NOT EXISTS order_refunds (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    request_type TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    refund_method TEXT,
+    amount NUMERIC NOT NULL,
+    order_item_ids UUID[] DEFAULT '{}',
+    mp_refund_id TEXT,
+    voucher_id UUID REFERENCES vouchers(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
 -- Índices
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
 CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
 CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);
+CREATE INDEX IF NOT EXISTS idx_vouchers_code ON vouchers(code);
+CREATE INDEX IF NOT EXISTS idx_vouchers_valid_until ON vouchers(valid_until);
+CREATE INDEX IF NOT EXISTS idx_order_refunds_order_id ON order_refunds(order_id);

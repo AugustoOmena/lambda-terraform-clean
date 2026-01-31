@@ -15,6 +15,8 @@ ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vouchers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE order_refunds ENABLE ROW LEVEL SECURITY;
 
 -- 3. PROFILES: Usuário vê/edita o seu; Backend total.
 CREATE POLICY "Users can view own profile" ON profiles FOR SELECT USING (auth.uid() = id);
@@ -38,3 +40,15 @@ CREATE POLICY "Users can insert own order items" ON order_items FOR INSERT WITH 
     order_id IN (SELECT id FROM orders WHERE user_id = auth.uid())
 );
 CREATE POLICY "Service Role Full Access Order Items" ON order_items FOR ALL USING (auth.role() = 'service_role');
+
+-- 7. VOUCHERS: Apenas backend; cliente vê via pedido quando recebe voucher.
+CREATE POLICY "Service Role Full Access Vouchers" ON vouchers FOR ALL USING (auth.role() = 'service_role');
+
+-- 8. ORDER_REFUNDS: Cliente cria/vê suas solicitações; Backend total.
+CREATE POLICY "Users can view own order refunds" ON order_refunds FOR SELECT USING (
+    order_id IN (SELECT id FROM orders WHERE user_id = auth.uid())
+);
+CREATE POLICY "Users can create own order refund requests" ON order_refunds FOR INSERT WITH CHECK (
+    order_id IN (SELECT id FROM orders WHERE user_id = auth.uid())
+);
+CREATE POLICY "Service Role Full Access Order Refunds" ON order_refunds FOR ALL USING (auth.role() = 'service_role');

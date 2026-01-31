@@ -79,7 +79,7 @@ resource "aws_apigatewayv2_api" "main" {
     allow_origins = ["*"]
     # Adicionado PUT e DELETE para o Backoffice funcionar
     allow_methods = ["POST", "GET", "OPTIONS", "PUT", "DELETE"]
-    allow_headers = ["content-type", "x-idempotency-key"]
+    allow_headers = ["content-type", "x-idempotency-key", "x-backoffice"]
     max_age       = 300
   }
 }
@@ -245,6 +245,60 @@ resource "aws_lambda_permission" "api_gw_profiles" {
   function_name = module.profiles_lambda.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*/usuarios*"
+}
+
+# --- 6. MICROSERVIÇO: ORDERS (Pedidos) ---
+module "orders_lambda" {
+  source = "../../modules/lambda_function"
+
+  function_name = "loja-omena-orders"
+  handler       = "handler.lambda_handler"
+  source_dir    = "../../../src/orders"
+
+  layers = [
+    aws_lambda_layer_version.main_dependencies.arn,
+    aws_lambda_layer_version.shared_code.arn
+  ]
+
+  environment_variables = {
+    SUPABASE_URL            = var.supabase_url
+    SUPABASE_KEY            = var.supabase_key
+    MP_ACCESS_TOKEN         = "TEST-3645506064282139-010508-daf199203ea82aa3e7ed6e2daf9e4edb-424720501"
+    POWERTOOLS_SERVICE_NAME = "orders"
+  }
+
+  tags = { Project = "LojaOmena", Env = "Prod" }
+}
+
+# Integração Orders
+resource "aws_apigatewayv2_integration" "orders" {
+  api_id                 = aws_apigatewayv2_api.main.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = module.orders_lambda.invoke_arn
+  payload_format_version = "2.0"
+}
+
+# Rota 1: Raiz (/pedidos) para Listar (GET)
+resource "aws_apigatewayv2_route" "orders_root" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "ANY /pedidos"
+  target    = "integrations/${aws_apigatewayv2_integration.orders.id}"
+}
+
+# Rota 2: Proxy (/pedidos/{id}) para Detalhe (GET), solicitar cancelamento (POST), Backoffice (PUT)
+resource "aws_apigatewayv2_route" "orders_proxy" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "ANY /pedidos/{proxy+}"
+  target    = "integrations/${aws_apigatewayv2_integration.orders.id}"
+}
+
+# Permissão Genérica (O * no final permite sub-rotas como /pedidos/{id} e /pedidos/{id}/solicitar-cancelamento)
+resource "aws_lambda_permission" "api_gw_orders" {
+  statement_id  = "AllowExecutionFromAPIGateway"
+  action        = "lambda:InvokeFunction"
+  function_name = module.orders_lambda.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*/pedidos*"
 }
 
 # --- OUTPUT ---
