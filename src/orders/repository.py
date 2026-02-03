@@ -46,7 +46,7 @@ class OrderRepository:
         return {"data": res.data or [], "count": res.count or 0}
 
     def list_all_orders(self, page: int = 1, limit: int = 20) -> dict[str, Any]:
-        """List all orders (backoffice admin). Same simplified fields + user_id."""
+        """List all orders (backoffice admin). Same simplified fields + user_id + user email."""
         start = (page - 1) * limit
         end = start + limit - 1
         res = (
@@ -56,7 +56,20 @@ class OrderRepository:
             .range(start, end)
             .execute()
         )
-        return {"data": res.data or [], "count": res.count or 0}
+        data = res.data or []
+        if data:
+            user_ids = list({o["user_id"] for o in data if o.get("user_id")})
+            if user_ids:
+                profiles_res = (
+                    self.db.table("profiles").select("id, email").in_("id", user_ids).execute()
+                )
+                id_to_email = {p["id"]: p.get("email") for p in (profiles_res.data or [])}
+                for o in data:
+                    o["user_email"] = id_to_email.get(o.get("user_id")) if o.get("user_id") else None
+            else:
+                for o in data:
+                    o["user_email"] = None
+        return {"data": data, "count": res.count or 0}
 
     def get_profile_role(self, user_id: str) -> Optional[str]:
         """Fetch profile role by user_id (for admin check)."""
