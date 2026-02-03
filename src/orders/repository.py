@@ -32,12 +32,12 @@ class OrderRepository:
         page: int = 1,
         limit: int = 20,
     ) -> dict[str, Any]:
-        """List orders by user (simplified: id, status, total_amount, created_at)."""
+        """List orders by user with fields for API contract (id, user_id, status, total_amount, created_at, payment_id, payer)."""
         start = (page - 1) * limit
         end = start + limit - 1
         res = (
             self.db.table("orders")
-            .select("id, status, total_amount, created_at, payment_method", count="exact")
+            .select("id, user_id, status, total_amount, created_at, payment_method, payment_id, payer", count="exact")
             .eq("user_id", user_id)
             .order("created_at", desc=True)
             .range(start, end)
@@ -51,7 +51,7 @@ class OrderRepository:
         end = start + limit - 1
         res = (
             self.db.table("orders")
-            .select("id, user_id, status, total_amount, created_at, payment_method", count="exact")
+            .select("id, user_id, status, total_amount, created_at, payment_method, payment_id, payer", count="exact")
             .order("created_at", desc=True)
             .range(start, end)
             .execute()
@@ -76,6 +76,11 @@ class OrderRepository:
         res = self.db.table("profiles").select("role").eq("id", user_id).execute()
         return res.data[0].get("role") if res.data else None
 
+    def get_profile_email(self, user_id: str) -> Optional[str]:
+        """Fetch profile email by user_id (for order payload)."""
+        res = self.db.table("profiles").select("email").eq("id", user_id).execute()
+        return res.data[0].get("email") if res.data else None
+
     def get_order_items_by_ids(self, order_id: str, item_ids: list[str]) -> list[dict[str, Any]]:
         """Fetch order_items by ids belonging to order_id."""
         if not item_ids:
@@ -92,6 +97,18 @@ class OrderRepository:
     def get_order_items_all(self, order_id: str) -> list[dict[str, Any]]:
         """Fetch all order_items for an order."""
         res = self.db.table("order_items").select("*").eq("order_id", order_id).execute()
+        return res.data or []
+
+    def get_order_items_for_order_ids(self, order_ids: list[str]) -> list[dict[str, Any]]:
+        """Fetch all order_items for multiple orders (for list responses)."""
+        if not order_ids:
+            return []
+        res = (
+            self.db.table("order_items")
+            .select("*")
+            .in_("order_id", order_ids)
+            .execute()
+        )
         return res.data or []
 
     def insert_refund_request(

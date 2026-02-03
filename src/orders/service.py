@@ -17,6 +17,33 @@ ORDER_COMPLETED_STATUSES = ("approved", "completed")
 CUSTOMER_CANCEL_DAYS = 7
 
 
+def _attach_items_to_orders(repo: OrderRepository, orders: list[dict[str, Any]]) -> None:
+    """Attach order_items to each order in list (mutates orders in place)."""
+    if not orders:
+        return
+    order_ids = [o["id"] for o in orders]
+    all_items = repo.get_order_items_for_order_ids(order_ids)
+    by_order: dict[str, list] = {}
+    for item in all_items:
+        oid = item.get("order_id")
+        if oid not in by_order:
+            by_order[oid] = []
+        by_order[oid].append(item)
+    for o in orders:
+        o["items"] = by_order.get(o["id"], [])
+        o["shipping_address"] = (o.get("payer") or {}).get("address") if isinstance(o.get("payer"), dict) else None
+
+
+def _enrich_order_payload(repo: OrderRepository, order: dict[str, Any]) -> None:
+    """Add user_email and shipping_address to order for API contract (mutates in place)."""
+    uid = order.get("user_id")
+    if uid:
+        order["user_email"] = repo.get_profile_email(uid)
+    else:
+        order["user_email"] = None
+    order["shipping_address"] = (order.get("payer") or {}).get("address") if isinstance(order.get("payer"), dict) else None
+
+
 class OrderService:
     def __init__(self) -> None:
         self.repo = OrderRepository()
@@ -29,18 +56,36 @@ class OrderService:
             raise Exception("Pedido não encontrado")
         refunds = self.repo.list_refund_requests_by_order(order_id)
         order["refund_requests"] = refunds
+        _enrich_order_payload(self.repo, order)
         return order
 
     def list_orders_by_customer(self, user_id: str, page: int = 1, limit: int = 20) -> dict[str, Any]:
-        """Simplified list of orders by customer."""
-        return self.repo.list_orders_by_user(user_id, page=page, limit=limit)
+        """List of orders by customer, each with items and user_email, shipping_address."""
+        result = self.repo.list_orders_by_user(user_id, page=page, limit=limit)
+        _attach_items_to_orders(self.repo, result["data"])
+        user_email = self.repo.get_profile_email(user_id)
+        for o in result["data"]:
+            o["user_email"] = user_email
+        return result
 
     def list_all_orders_for_admin(self, admin_user_id: str, page: int = 1, limit: int = 20) -> dict[str, Any]:
-        """List all orders; only allowed when requester has role 'admin'."""
+        """List all orders; only allowed when requester has role 'admin'. Each order includes items."""
         role = self.repo.get_profile_role(admin_user_id)
         if role != "admin":
             raise PermissionError("Apenas usuários com role admin podem listar todos os pedidos")
-        return self.repo.list_all_orders(page=page, limit=limit)
+        result = self.repo.list_all_orders(page=page, limit=limit)
+        _attach_items_to_orders(self.repo, result["data"])
+        return result
+
+    def update_order_status(self, order_id: str, status: str) -> dict[str, Any]:
+        """Backoffice: update only status and updated_at; return full order with items."""
+        if not self.repo.get_order_by_id(order_id, user_id=None):
+            raise Exception("Pedido não encontrado")
+        self.repo.update_order_status(order_id, status)
+        order = self.repo.get_order_with_items(order_id, user_id=None)
+        order["refund_requests"] = self.repo.list_refund_requests_by_order(order_id)
+        _enrich_order_payload(self.repo, order)
+        return order
 
     def _order_completed_at(self, order: dict[str, Any]) -> Optional[datetime]:
         """Order is completed when status is approved/completed; use updated_at or created_at."""

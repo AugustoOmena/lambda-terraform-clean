@@ -30,3 +30,8 @@ class BackofficeCancelInput(BaseModel):
         if v not in ("mp", "voucher"):
             raise ValueError("refund_method deve ser 'mp' ou 'voucher'")
         return v
+
+
+class OrderStatusUpdate(BaseModel):
+    """Atualização de status do pedido pelo backoffice."""
+    status: str = Field(..., min_length=1, description="Novo status (ex: pending, approved, shipped, cancelled)")
