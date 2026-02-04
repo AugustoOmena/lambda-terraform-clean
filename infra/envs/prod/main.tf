@@ -157,6 +157,8 @@ module "products_lambda" {
     FIREBASE_CLIENT_EMAIL   = var.firebase_client_email
     FIREBASE_PRIVATE_KEY    = var.firebase_private_key
     FIREBASE_DATABASE_URL   = var.firebase_database_url
+    MELHOR_ENVIO_TOKEN      = var.melhor_envio_token
+    EP_ORIGEM               = var.cep_origem
     POWERTOOLS_SERVICE_NAME = "products"
   }
 
