@@ -2,6 +2,7 @@ import mercadopago
 import os
 from decimal import Decimal, ROUND_HALF_UP
 
+from shared.firebase import decrement_products_quantity
 from shared.melhor_envio import MelhorEnvioAPIError, get_quote
 
 from repository import PaymentRepository
@@ -158,7 +159,10 @@ class PaymentService:
         # 5. Baixa Estoque
         self.repo.update_stock(payload.items)
 
-        # 6. Retorno
+        # 6. Atualiza quantidade dos itens no Firebase (como edição backoffice)
+        decrement_products_quantity(payload.items)
+
+        # 7. Retorno
         result = {
             "id": response["id"],
             "status": response["status"],

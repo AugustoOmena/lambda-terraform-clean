@@ -1,5 +1,6 @@
 import os
-import json
+from typing import Any, List
+
 import firebase_admin
 from firebase_admin import credentials, db
 from aws_lambda_powertools import Logger
@@ -57,3 +58,65 @@ def get_firebase_db():
     
     _firebase_db = db.reference()
     return _firebase_db
+
+
+def get_product_by_id(product_id: int):
+    """
+    Lê apenas o nó do produto no Firebase (products/{id}). Não carrega a árvore inteira.
+
+    Returns:
+        Dict do produto ou None se não existir.
+    """
+    try:
+        ref = get_firebase_db().child("products").child(str(product_id))
+        return ref.get()
+    except Exception as e:
+        logger.error(f"Firebase get product {product_id} failed: {e}")
+        return None
+
+
+def decrement_products_quantity(items: List[Any]) -> None:
+    """
+    Atualiza no Firebase a quantidade dos produtos vendidos (subtrai do estoque),
+    como uma edição de backoffice: apenas os itens vendidos, pelo ID.
+
+    Para cada item: lê só esse produto por ID (get_product_by_id), subtrai
+    a quantidade vendida do tamanho correspondente (ou 'Único'), recalcula o total
+    e faz update apenas nesse nó. Custo: 1 read + 1 write por item do pedido.
+
+    Args:
+        items: Lista de itens com .id, .quantity e opcionalmente .size (default 'Único').
+    """
+    if not items:
+        return
+    try:
+        get_firebase_db()
+    except Exception as e:
+        logger.error(f"Firebase unavailable for stock update: {e}")
+        return
+
+    for item in items:
+        product_id = getattr(item, "id", None)
+        sold_qty = getattr(item, "quantity", 0)
+        size_sold = getattr(item, "size", None) or "Único"
+        if product_id is None or sold_qty <= 0:
+            continue
+        try:
+            data = get_product_by_id(product_id)
+            if not data:
+                logger.warning(f"Product {product_id} not found in Firebase, skipping quantity update")
+                continue
+            current_stock = data.get("stock")
+            if not isinstance(current_stock, dict):
+                current_stock = {}
+            if size_sold in current_stock:
+                current_stock[size_sold] = max(0, int(current_stock[size_sold]) - sold_qty)
+            else:
+                if "Único" in current_stock:
+                    current_stock["Único"] = max(0, int(current_stock["Único"]) - sold_qty)
+            new_total = sum(int(v) for v in current_stock.values())
+            ref = get_firebase_db().child("products").child(str(product_id))
+            ref.update({"quantity": new_total, "stock": current_stock})
+            logger.info(f"Firebase: product {product_id} quantity updated (sold {sold_qty}, new total {new_total})")
+        except Exception as e:
+            logger.error(f"Firebase stock update failed for product {product_id}: {e}")
