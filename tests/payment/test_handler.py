@@ -56,7 +56,7 @@ class TestPaymentLambdaHandler:
         
         # Payload válido simulado
         event = _create_event({
-            "transaction_amount": 100.00,
+            "transaction_amount": 125.90,  # 100 + frete
             "payment_method_id": "pix",
             "installments": 1,
             "payer": {
@@ -161,15 +161,15 @@ class TestPaymentLambdaHandler:
             "Erro Mercado Pago: Timeout na comunicação"
         )
         event = _create_event({
-            "transaction_amount": 100.00,
+            "transaction_amount": 125.90,
             "payment_method_id": "pix",
             "installments": 1,
             "payer": {"email": "test@example.com", "identification": {"number": "12345678900"}},
             "user_id": "user-123",
-                "items": [{"id": 1, "name": "Produto", "price": 100.00, "quantity": 1}],
-                "frete": 25.90,
-                "frete_service": "jadlog_package",
-                "cep": "01310100",
+            "items": [{"id": 1, "name": "Produto", "price": 100.00, "quantity": 1}],
+            "frete": 25.90,
+            "frete_service": "jadlog_package",
+            "cep": "01310100",
             })
         
         # Act
@@ -218,7 +218,7 @@ class TestPaymentLambdaHandler:
         }
         
         event = _create_event({
-            "transaction_amount": 100.00,
+            "transaction_amount": 125.90,
             "payment_method_id": "pix",
             "installments": 1,
             "payer": {"email": "test@example.com", "identification": {"number": "12345678900"}},
@@ -255,7 +255,7 @@ class TestPaymentLambdaHandler:
         }
         
         event = _create_event({
-            "transaction_amount": 50.00,
+            "transaction_amount": 75.90,  # 50 + frete
             "payment_method_id": "pix",
             "installments": 1,
             "payer": {"email": "pix@example.com", "identification": {"number": "98765432100"}},
@@ -295,7 +295,7 @@ class TestPaymentLambdaHandler:
         }
         
         event = _create_event({
-            "transaction_amount": 300.00,
+            "transaction_amount": 325.90,  # 300 + frete
             "payment_method_id": "credit_card",
             "token": "card-token-abc123",
             "installments": 3,
@@ -334,7 +334,7 @@ class TestPaymentLambdaHandler:
             "Timeout ao conectar na API de frete"
         )
         event = _create_event({
-            "transaction_amount": 100.00,
+            "transaction_amount": 125.90,
             "payment_method_id": "pix",
             "installments": 1,
             "payer": {"email": "a@b.com", "identification": {"number": "12345678900"}},

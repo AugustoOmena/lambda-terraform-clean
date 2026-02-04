@@ -39,9 +39,9 @@ def mock_mercadopago():
 
 @pytest.fixture
 def valid_pix_payload():
-    """Payload válido para pagamento PIX."""
+    """Payload válido para pagamento PIX (transaction_amount = subtotal 100 + frete 25.90)."""
     return PaymentInput(
-        transaction_amount=100.00,
+        transaction_amount=125.90,
         payment_method_id="pix",
         installments=1,
         payer=Payer(
@@ -60,10 +60,10 @@ def valid_pix_payload():
 
 @pytest.fixture
 def valid_card_payload():
-    """Payload válido para pagamento com Cartão."""
+    """Payload válido para pagamento com Cartão (transaction_amount = 150 + frete 25.90)."""
     return PaymentInput(
         token="card_token_abc123",
-        transaction_amount=150.00,
+        transaction_amount=175.90,
         payment_method_id="visa",
         installments=3,
         issuer_id="123",
@@ -137,7 +137,7 @@ class TestPaymentServiceIntegration:
         create_call = mock_payment_method.create.call_args
         payment_data = create_call[0][0]  # Primeiro argumento posicional
         
-        assert payment_data["transaction_amount"] == 100.00
+        assert payment_data["transaction_amount"] == 125.90  # subtotal + frete
         assert payment_data["payment_method_id"] == "pix"
         assert payment_data["installments"] == 1
         assert payment_data["payer"]["email"] == "cliente@example.com"
@@ -188,7 +188,7 @@ class TestPaymentServiceIntegration:
         assert payment_data["token"] == "card_token_abc123"
         assert payment_data["installments"] == 3
         assert payment_data["issuer_id"] == "123"
-        assert payment_data["transaction_amount"] == 150.00
+        assert payment_data["transaction_amount"] == 175.90  # subtotal + frete
         
         # Verifica chamadas subsequentes
         mock_repository.create_order.assert_called_once()
@@ -206,7 +206,7 @@ class TestPaymentServiceIntegration:
         """
         # Arrange
         boleto_payload = PaymentInput(
-            transaction_amount=200.00,
+            transaction_amount=225.90,  # 200 + 25.90
             frete=25.90,
             frete_service="jadlog_package",
             cep="01310100",
@@ -219,9 +219,7 @@ class TestPaymentServiceIntegration:
                 identification=Identification(type="CPF", number="11122233344")
             ),
             user_id="user-boleto-001",
-            items=[
-                Item(id=3, name="Tênis", price=200.00, quantity=1)
-            ]
+            items=[Item(id=3, name="Tênis", price=200.00, quantity=1)]
         )
         
         mock_repository.get_product_price.return_value = {"id": 3, "price": 200.00}
@@ -337,7 +335,7 @@ class TestPaymentServiceIntegration:
         """
         # Arrange
         card_payload_no_token = PaymentInput(
-            transaction_amount=100.00,
+            transaction_amount=125.90,  # 100 + 25.90
             frete=25.90,
             frete_service="jadlog_package",
             cep="01310100",
@@ -375,12 +373,10 @@ class TestPaymentServiceIntegration:
         valid_pix_payload
     ) -> None:
         """
-        Cenário: Front envia R$ 100, banco calcula R$ 100.50 (dentro da margem).
-        Esperado: MP recebe o valor CALCULADO pelo backend (R$ 100.50), não o do front.
+        Cenário: Banco retorna preço 50.25 (subtotal 100.50); total = 100.50 + 25.90 = 126.40.
+        Front envia 126.40. Esperado: MP recebe 126.40 (subtotal back + frete).
         """
-        # Arrange: Banco retorna preço ligeiramente diferente (50.25 * 2 = 100.50)
         mock_repository.get_product_price.return_value = {"id": 1, "price": 50.25}
-        
         mock_payment_method = MagicMock()
         mock_mercadopago.payment.return_value = mock_payment_method
         mock_payment_method.create.return_value = {
@@ -388,14 +384,21 @@ class TestPaymentServiceIntegration:
             "response": {"id": "mp-123", "status": "pending", "status_detail": "pending"}
         }
         mock_repository.create_order.return_value = {"id": "order-123"}
-        
-        # Act
+        payload = PaymentInput(
+            transaction_amount=126.40,  # 100.50 + 25.90
+            payment_method_id="pix",
+            installments=1,
+            payer=Payer(email="c@e.com", identification=Identification(number="12345678900")),
+            user_id="user-abc-123",
+            items=[Item(id=1, name="Camiseta", price=50.00, quantity=2, size="M")],
+            frete=25.90,
+            frete_service="jadlog_package",
+            cep="01310100",
+        )
         service = PaymentService()
-        service.process_payment(valid_pix_payload)
-        
-        # Assert: MP deve receber 100.50 (valor do backend), não 100.00 (valor do front)
+        service.process_payment(payload)
         payment_data = mock_payment_method.create.call_args[0][0]
-        assert payment_data["transaction_amount"] == 100.50  # Valor autoritativo do backend
+        assert payment_data["transaction_amount"] == 126.40  # subtotal back + frete
 
     def test_process_payment_with_address_includes_payer_address(
         self,
@@ -411,7 +414,7 @@ class TestPaymentServiceIntegration:
         from src.payment.schemas import Address
         
         payload_with_address = PaymentInput(
-            transaction_amount=50.00,
+            transaction_amount=75.90,  # 50 + 25.90
             frete=25.90,
             frete_service="jadlog_package",
             cep="01310100",

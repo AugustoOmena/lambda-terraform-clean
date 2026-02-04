@@ -56,7 +56,7 @@ class TestPaymentInputValidation:
     def test_payment_input_default_installments_is_1(self) -> None:
         """installments deve ter valor padrão 1."""
         payload = PaymentInput(
-            transaction_amount=100.0,
+            transaction_amount=125.90,  # 100 + frete
             payment_method_id="pix",
             payer=Payer(
                 email="test@example.com",

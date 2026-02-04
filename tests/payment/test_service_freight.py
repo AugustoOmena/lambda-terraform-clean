@@ -24,7 +24,7 @@ def mock_mercadopago():
 
 def _payload(frete: float = 25.90, cep: str = "01310100", frete_service: str = "jadlog_package") -> PaymentInput:
     return PaymentInput(
-        transaction_amount=100.00,
+        transaction_amount=100.00 + frete,  # subtotal 100 + frete
         payment_method_id="pix",
         installments=1,
         payer=Payer(

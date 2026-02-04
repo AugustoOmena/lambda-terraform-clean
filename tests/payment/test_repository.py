@@ -309,7 +309,7 @@ class TestPaymentRepositoryCreateOrder:
         # Payloads simulados
         from src.payment.schemas import PaymentInput, Payer, Identification
         payload = PaymentInput(
-            transaction_amount=150.00,
+            transaction_amount=175.90,  # subtotal 150 + frete 25.90
             payment_method_id="pix",
             installments=1,
             payer=Payer(
@@ -332,16 +332,15 @@ class TestPaymentRepositoryCreateOrder:
         
         # Act
         repo = PaymentRepository()
-        result = repo.create_order(payload, mp_response, 150.00)
+        result = repo.create_order(payload, mp_response, 175.90)
         
         # Assert: Verifica estrutura do order
         assert result == {"id": "order-123"}
         
-        # Verifica que insert de order foi chamado
         order_insert_call = mock_table.insert.call_args_list[0]
         order_data = order_insert_call[0][0]
         assert order_data["user_id"] == "user-123"
-        assert order_data["total_amount"] == 150.00
+        assert order_data["total_amount"] == 175.90
         assert order_data["mp_payment_id"] == "mp-123"
         
         # Verifica que insert de items foi chamado com ambos os campos
@@ -381,7 +380,7 @@ class TestPaymentRepositoryCreateOrder:
         
         from src.payment.schemas import PaymentInput, Payer, Identification
         payload = PaymentInput(
-            transaction_amount=100.00,
+            transaction_amount=125.90,
             payment_method_id="pix",
             payer=Payer(
                 email="test@example.com",
@@ -397,7 +396,7 @@ class TestPaymentRepositoryCreateOrder:
         # Act & Assert
         repo = PaymentRepository()
         with pytest.raises(Exception) as exc_info:
-            repo.create_order(payload, {"id": "mp-123"}, 100.00)
+            repo.create_order(payload, {"id": "mp-123"}, 125.90)
         
         assert "Falha ao salvar pedido" in str(exc_info.value)
 

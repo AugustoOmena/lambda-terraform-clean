@@ -81,19 +81,20 @@ class PaymentService:
             # Adiciona ao log de debug
             log_detalhado.append(f"ID:{item.id} | Qtd:{qty} | PreçoDB:{price} | Sub:{subtotal}")
 
-        # Arredonda
+        # Subtotal dos itens (preços do banco) e total esperado = subtotal + frete já validado
         total_calculado = total_calculado.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        total_esperado = (total_calculado + frete_enviado).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         total_front = Decimal(str(payload.transaction_amount)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        
-        diff = abs(total_calculado - total_front)
+        diff = abs(total_front - total_esperado)
 
-        # SE DER ERRO, VAMOS MOSTRAR O PORQUÊ NA TELA
-        if diff > Decimal('1.00'):
+        if diff > FREIGHT_TOLERANCE:
             debug_msg = " | ".join(log_detalhado)
-            raise Exception(f"Divergência. Front: {total_front}, Back: {total_calculado}. Detalhes: {debug_msg}")
+            raise Exception(
+                f"Divergência. Front (total com frete): {total_front}, Back (subtotal {total_calculado} + frete {frete_enviado} = {total_esperado}). Detalhes: {debug_msg}"
+            )
 
-        # Se passou na auditoria, usamos o valor calculado pelo backend (Autoritativo)
-        final_transaction_amount = float(total_calculado)
+        # Valor autoritativo: subtotal do backend + frete validado
+        final_transaction_amount = float(total_esperado)
 
         # 2. Monta Payload MP
 # 2. Monta o Payload do Mercado Pago
