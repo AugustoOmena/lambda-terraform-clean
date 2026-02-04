@@ -6,10 +6,10 @@ from shared.melhor_envio import MelhorEnvioAPIError, get_quote
 
 from repository import PaymentRepository
 
-# Dimensões padrão por item para cotação (roupas de praia): cm e kg.
-DEFAULT_WIDTH_CM = 30
-DEFAULT_HEIGHT_CM = 20
-DEFAULT_LENGTH_CM = 5
+# Pacote único padrão para cotação (alinhado ao frontend até haver dimensões por produto).
+DEFAULT_WIDTH_CM = 16
+DEFAULT_HEIGHT_CM = 12
+DEFAULT_LENGTH_CM = 20
 DEFAULT_WEIGHT_KG = 0.5
 FREIGHT_TOLERANCE = Decimal("0.01")
 
@@ -20,17 +20,17 @@ class PaymentService:
         self.mp = mercadopago.SDK(os.environ.get("MP_ACCESS_TOKEN"))
 
     def process_payment(self, payload):
-        # 0. Validação de frete: valor enviado deve coincidir com cotação Melhor Envio
+        # 0. Validação de frete: pacote único com soma das quantidades (igual ao frontend).
+        total_qty = sum(item.quantity for item in payload.items)
         products = [
             {
                 "width": DEFAULT_WIDTH_CM,
                 "height": DEFAULT_HEIGHT_CM,
                 "length": DEFAULT_LENGTH_CM,
                 "weight": DEFAULT_WEIGHT_KG,
-                "quantity": item.quantity,
+                "quantity": total_qty,
                 "insurance_value": 0,
             }
-            for item in payload.items
         ]
         try:
             opcoes = get_quote(payload.cep, products)
