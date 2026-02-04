@@ -24,7 +24,7 @@ def mock_mercadopago():
 
 @pytest.fixture
 def valid_payment_payload():
-    """Payload válido de pagamento para usar nos testes."""
+    """Payload válido de pagamento para usar nos testes (inclui frete e cep)."""
     return PaymentInput(
         transaction_amount=100.00,
         payment_method_id="pix",
@@ -36,17 +36,25 @@ def valid_payment_payload():
             identification=Identification(type="CPF", number="12345678900")
         ),
         user_id="user-123",
-        items=[
-            Item(id=1, name="Camiseta", price=50.00, quantity=2)
-        ]
+        items=[Item(id=1, name="Camiseta", price=50.00, quantity=2)],
+        frete=25.90,
+        cep="01310100",
     )
+
+
+@pytest.fixture
+def mock_get_quote():
+    """Mock get_quote para passar na validação de frete (valor 25.90)."""
+    with patch("src.payment.service.get_quote") as m:
+        m.return_value = [{"transportadora": "PAC", "preco": 25.90, "prazo_entrega_dias": 8}]
+        yield m
 
 
 class TestPaymentServiceAudit:
     """Testes focados na regra de Auditoria de Preços do PaymentService."""
 
     def test_audit_success_price_matches_within_tolerance(
-        self, mock_repository: MagicMock, mock_mercadopago: MagicMock, valid_payment_payload
+        self, mock_repository: MagicMock, mock_mercadopago: MagicMock, valid_payment_payload, mock_get_quote
     ) -> None:
         """
         Cenário: Front envia R$ 100.00 e banco retorna preço que resulta em R$ 100.00.
@@ -77,7 +85,7 @@ class TestPaymentServiceAudit:
         mock_repository.create_order.assert_called_once()
 
     def test_audit_success_with_minor_difference_under_1_real(
-        self, mock_repository: MagicMock, mock_mercadopago: MagicMock, valid_payment_payload
+        self, mock_repository: MagicMock, mock_mercadopago: MagicMock, valid_payment_payload, mock_get_quote
     ) -> None:
         """
         Cenário: Front envia R$ 100.00, banco calcula R$ 100.50 (diferença < R$ 1.00).
@@ -106,7 +114,7 @@ class TestPaymentServiceAudit:
         mock_repository.create_order.assert_called_once()
 
     def test_audit_failure_divergence_exceeds_tolerance(
-        self, mock_repository: MagicMock, mock_mercadopago: MagicMock, valid_payment_payload
+        self, mock_repository: MagicMock, mock_mercadopago: MagicMock, valid_payment_payload, mock_get_quote
     ) -> None:
         """
         Cenário: Front envia R$ 100.00, mas banco calcula R$ 500.00 (diferença > R$ 1.00).
@@ -130,7 +138,7 @@ class TestPaymentServiceAudit:
         assert "PreçoDB:250" in error_msg  # Aceita 250.0 ou 250.00
 
     def test_audit_product_not_found_in_database(
-        self, mock_repository: MagicMock, mock_mercadopago: MagicMock, valid_payment_payload
+        self, mock_repository: MagicMock, mock_mercadopago: MagicMock, valid_payment_payload, mock_get_quote
     ) -> None:
         """
         Cenário: Front envia produto ID 1, mas repositório retorna None (produto inexistente).
@@ -149,13 +157,13 @@ class TestPaymentServiceAudit:
         assert "Produto ID 1 não encontrado" in error_msg
 
     def test_audit_empty_items_list(
-        self, mock_repository: MagicMock, mock_mercadopago: MagicMock
+        self, mock_repository: MagicMock, mock_mercadopago: MagicMock, mock_get_quote
     ) -> None:
         """
         Cenário: Front envia lista de itens vazia.
         Esperado: Lança Exception antes de qualquer cálculo.
         """
-        # Arrange: Payload com lista de itens vazia
+        # Arrange: Payload com lista de itens vazia (frete/cep obrigatórios no schema)
         empty_payload = PaymentInput(
             transaction_amount=100.00,
             payment_method_id="pix",
@@ -167,7 +175,9 @@ class TestPaymentServiceAudit:
                 identification=Identification(type="CPF", number="12345678900")
             ),
             user_id="user-123",
-            items=[]  # LISTA VAZIA
+            items=[],  # LISTA VAZIA
+            frete=25.90,
+            cep="01310100",
         )
         
         # Act & Assert
@@ -184,7 +194,7 @@ class TestPaymentServiceAudit:
         mock_repository.get_product_price.assert_not_called()
 
     def test_audit_multiple_items_price_calculation(
-        self, mock_repository: MagicMock, mock_mercadopago: MagicMock
+        self, mock_repository: MagicMock, mock_mercadopago: MagicMock, mock_get_quote
     ) -> None:
         """
         Cenário: Múltiplos itens com quantidades diferentes.
@@ -204,8 +214,10 @@ class TestPaymentServiceAudit:
             user_id="user-456",
             items=[
                 Item(id=1, name="Camiseta", price=30.00, quantity=2),
-                Item(id=2, name="Boné", price=20.00, quantity=1)
-            ]
+                Item(id=2, name="Boné", price=20.00, quantity=1),
+            ],
+            frete=25.90,
+            cep="01310100",
         )
         
         # Mock retorna preços diferentes para cada produto
@@ -239,7 +251,7 @@ class TestPaymentServiceAudit:
         mock_repository.create_order.assert_called_once()
 
     def test_audit_handles_none_price_from_database(
-        self, mock_repository: MagicMock, mock_mercadopago: MagicMock, valid_payment_payload
+        self, mock_repository: MagicMock, mock_mercadopago: MagicMock, valid_payment_payload, mock_get_quote
     ) -> None:
         """
         Cenário: Banco retorna produto mas com price=None.

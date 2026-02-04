@@ -2,6 +2,7 @@ from aws_lambda_powertools import Logger
 from aws_lambda_powertools.utilities.parser import parse
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
+from shared.melhor_envio import MelhorEnvioAPIError
 from shared.responses import http_response
 from schemas import PaymentInput
 from service import PaymentService
@@ -34,11 +35,11 @@ def lambda_handler(event: dict, context: LambdaContext):
         return http_response(201, result)
 
     except ValueError as e:
-        # Erros de validação (Pydantic)
-        logger.warning(f"Erro de validação: {str(e)}")
+        logger.warning("Validação ou frete: %s", e)
         return http_response(400, {"error": "Dados inválidos", "details": str(e)})
-        
+    except MelhorEnvioAPIError as e:
+        logger.warning("API frete: %s", e)
+        return http_response(502, {"error": str(e)})
     except Exception as e:
-        # Erros Genéricos
         logger.exception("Erro crítico no processamento")
         return http_response(500, {"error": str(e)})

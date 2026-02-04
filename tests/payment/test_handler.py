@@ -63,20 +63,12 @@ class TestPaymentLambdaHandler:
                 "email": "test@example.com",
                 "first_name": "Test",
                 "last_name": "User",
-                "identification": {
-                    "type": "CPF",
-                    "number": "12345678900"
-                }
+                "identification": {"type": "CPF", "number": "12345678900"}
             },
             "user_id": "user-123",
-            "items": [
-                {
-                    "id": 1,
-                    "name": "Produto Teste",
-                    "price": 100.00,
-                    "quantity": 1
-                }
-            ]
+            "items": [{"id": 1, "name": "Produto Teste", "price": 100.00, "quantity": 1}],
+            "frete": 25.90,
+            "cep": "01310100",
         })
         
         # Act
@@ -167,17 +159,15 @@ class TestPaymentLambdaHandler:
         mock_payment_service.process_payment.side_effect = Exception(
             "Erro Mercado Pago: Timeout na comunicação"
         )
-        
         event = _create_event({
             "transaction_amount": 100.00,
             "payment_method_id": "pix",
             "installments": 1,
-            "payer": {
-                "email": "test@example.com",
-                "identification": {"number": "12345678900"}
-            },
+            "payer": {"email": "test@example.com", "identification": {"number": "12345678900"}},
             "user_id": "user-123",
-            "items": [{"id": 1, "name": "Produto", "price": 100.00, "quantity": 1}]
+            "items": [{"id": 1, "name": "Produto", "price": 100.00, "quantity": 1}],
+            "frete": 25.90,
+            "cep": "01310100",
         })
         
         # Act
@@ -229,12 +219,11 @@ class TestPaymentLambdaHandler:
             "transaction_amount": 100.00,
             "payment_method_id": "pix",
             "installments": 1,
-            "payer": {
-                "email": "test@example.com",
-                "identification": {"number": "12345678900"}
-            },
+            "payer": {"email": "test@example.com", "identification": {"number": "12345678900"}},
             "user_id": "user-123",
-            "items": [{"id": 1, "name": "Produto", "price": 100.00, "quantity": 1}]
+            "items": [{"id": 1, "name": "Produto", "price": 100.00, "quantity": 1}],
+            "frete": 25.90,
+            "cep": "01310100",
         })
         
         # Act
@@ -266,12 +255,11 @@ class TestPaymentLambdaHandler:
             "transaction_amount": 50.00,
             "payment_method_id": "pix",
             "installments": 1,
-            "payer": {
-                "email": "pix@example.com",
-                "identification": {"number": "98765432100"}
-            },
+            "payer": {"email": "pix@example.com", "identification": {"number": "98765432100"}},
             "user_id": "user-pix",
-            "items": [{"id": 2, "name": "Produto PIX", "price": 50.00, "quantity": 1}]
+            "items": [{"id": 2, "name": "Produto PIX", "price": 50.00, "quantity": 1}],
+            "frete": 25.90,
+            "cep": "01310100",
         })
         
         # Act
@@ -314,7 +302,9 @@ class TestPaymentLambdaHandler:
                 "identification": {"number": "11122233344"}
             },
             "user_id": "user-card",
-            "items": [{"id": 3, "name": "Produto Caro", "price": 300.00, "quantity": 1}]
+            "items": [{"id": 3, "name": "Produto Caro", "price": 300.00, "quantity": 1}],
+            "frete": 25.90,
+            "cep": "01310100",
         })
         
         # Act
@@ -326,3 +316,30 @@ class TestPaymentLambdaHandler:
         body = json.loads(response["body"])
         assert body["status"] == "approved"
         assert body["installments"] == 3
+
+    def test_handler_melhor_envio_error_502(
+        self, mock_payment_service: MagicMock, mock_logger: MagicMock
+    ) -> None:
+        """
+        Cenário: PaymentService lança MelhorEnvioAPIError (falha na API de frete).
+        Esperado: Retorna statusCode 502.
+        """
+        from shared.melhor_envio import MelhorEnvioAPIError
+        mock_payment_service.process_payment.side_effect = MelhorEnvioAPIError(
+            "Timeout ao conectar na API de frete"
+        )
+        event = _create_event({
+            "transaction_amount": 100.00,
+            "payment_method_id": "pix",
+            "installments": 1,
+            "payer": {"email": "a@b.com", "identification": {"number": "12345678900"}},
+            "user_id": "user-1",
+            "items": [{"id": 1, "name": "P", "price": 100.00, "quantity": 1}],
+            "frete": 25.90,
+            "cep": "01310100",
+        })
+        response = lambda_handler(event, None)
+        assert response["statusCode"] == 502
+        body = json.loads(response["body"])
+        assert "error" in body
+        assert "Frete" in body["error"] or "frete" in body["error"] or "Timeout" in body["error"]

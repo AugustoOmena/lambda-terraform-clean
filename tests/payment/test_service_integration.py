@@ -16,6 +16,14 @@ def mock_repository():
 
 
 @pytest.fixture
+def mock_get_quote():
+    """Mock get_quote para validação de frete (valor 25.90)."""
+    with patch("src.payment.service.get_quote") as m:
+        m.return_value = [{"transportadora": "PAC", "preco": 25.90, "prazo_entrega_dias": 8}]
+        yield m
+
+
+@pytest.fixture
 def mock_mercadopago():
     """Mock do Mercado Pago SDK."""
     with patch("src.payment.service.mercadopago") as mock_mp_module:
@@ -43,9 +51,9 @@ def valid_pix_payload():
             identification=Identification(type="CPF", number="12345678900")
         ),
         user_id="user-abc-123",
-        items=[
-            Item(id=1, name="Camiseta", price=50.00, quantity=2, size="M")
-        ]
+        items=[Item(id=1, name="Camiseta", price=50.00, quantity=2, size="M")],
+        frete=25.90,
+        cep="01310100",
     )
 
 
@@ -65,9 +73,9 @@ def valid_card_payload():
             identification=Identification(type="CPF", number="98765432100")
         ),
         user_id="user-xyz-789",
-        items=[
-            Item(id=2, name="Calça", price=150.00, quantity=1, size="G")
-        ]
+        items=[Item(id=2, name="Calça", price=150.00, quantity=1, size="G")],
+        frete=25.90,
+        cep="01310100",
     )
 
 
@@ -78,6 +86,7 @@ class TestPaymentServiceIntegration:
         self,
         mock_repository: MagicMock,
         mock_mercadopago: MagicMock,
+        mock_get_quote,
         valid_pix_payload
     ) -> None:
         """
@@ -140,6 +149,7 @@ class TestPaymentServiceIntegration:
         self,
         mock_repository: MagicMock,
         mock_mercadopago: MagicMock,
+        mock_get_quote,
         valid_card_payload
     ) -> None:
         """
@@ -185,7 +195,8 @@ class TestPaymentServiceIntegration:
     def test_process_payment_boleto_success(
         self,
         mock_repository: MagicMock,
-        mock_mercadopago: MagicMock
+        mock_mercadopago: MagicMock,
+        mock_get_quote
     ) -> None:
         """
         Cenário: Pagamento com Boleto bancário.
@@ -194,6 +205,8 @@ class TestPaymentServiceIntegration:
         # Arrange
         boleto_payload = PaymentInput(
             transaction_amount=200.00,
+            frete=25.90,
+            cep="01310100",
             payment_method_id="bolbradesco",
             installments=1,
             payer=Payer(
@@ -242,6 +255,7 @@ class TestPaymentServiceIntegration:
         self,
         mock_repository: MagicMock,
         mock_mercadopago: MagicMock,
+        mock_get_quote,
         valid_pix_payload
     ) -> None:
         """
@@ -280,6 +294,7 @@ class TestPaymentServiceIntegration:
         self,
         mock_repository: MagicMock,
         mock_mercadopago: MagicMock,
+        mock_get_quote,
         valid_card_payload
     ) -> None:
         """
@@ -310,7 +325,8 @@ class TestPaymentServiceIntegration:
     def test_process_payment_card_without_token_raises_exception(
         self,
         mock_repository: MagicMock,
-        mock_mercadopago: MagicMock
+        mock_mercadopago: MagicMock,
+        mock_get_quote
     ) -> None:
         """
         Cenário: Pagamento com cartão sem fornecer token.
@@ -319,6 +335,8 @@ class TestPaymentServiceIntegration:
         # Arrange
         card_payload_no_token = PaymentInput(
             transaction_amount=100.00,
+            frete=25.90,
+            cep="01310100",
             payment_method_id="visa",
             installments=2,
             payer=Payer(
@@ -349,6 +367,7 @@ class TestPaymentServiceIntegration:
         self,
         mock_repository: MagicMock,
         mock_mercadopago: MagicMock,
+        mock_get_quote,
         valid_pix_payload
     ) -> None:
         """
@@ -377,7 +396,8 @@ class TestPaymentServiceIntegration:
     def test_process_payment_with_address_includes_payer_address(
         self,
         mock_repository: MagicMock,
-        mock_mercadopago: MagicMock
+        mock_mercadopago: MagicMock,
+        mock_get_quote
     ) -> None:
         """
         Cenário: Payload inclui endereço do pagador.
@@ -388,6 +408,8 @@ class TestPaymentServiceIntegration:
         
         payload_with_address = PaymentInput(
             transaction_amount=50.00,
+            frete=25.90,
+            cep="01310100",
             payment_method_id="pix",
             payer=Payer(
                 email="jose@example.com",

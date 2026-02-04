@@ -322,7 +322,9 @@ class TestPaymentRepositoryCreateOrder:
             items=[
                 Item(id=1, name="Produto A", price=50.00, quantity=2, image="img.png"),
                 Item(id=2, name="Produto B", price=50.00, quantity=1)
-            ]
+            ],
+            frete=25.90,
+            cep="01310100",
         )
         
         mp_response = {"id": "mp-123", "status": "approved"}
@@ -385,7 +387,9 @@ class TestPaymentRepositoryCreateOrder:
                 identification=Identification(number="12345678900")
             ),
             user_id="user-123",
-            items=[Item(id=1, name="Produto", price=100.00, quantity=1)]
+            items=[Item(id=1, name="Produto", price=100.00, quantity=1)],
+            frete=25.90,
+            cep="01310100",
         )
         
         # Act & Assert
@@ -421,7 +425,9 @@ class TestPaymentRepositoryCreateOrder:
                 identification=Identification(number="12345678900")
             ),
             user_id="user-123",
-            items=[]  # Lista vazia
+            items=[],  # Lista vazia
+            frete=25.90,
+            cep="01310100",
         )
         
         # Act

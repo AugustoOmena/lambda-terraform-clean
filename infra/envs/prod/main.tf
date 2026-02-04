@@ -104,10 +104,12 @@ module "payment_lambda" {
   ]
 
   environment_variables = {
-    # Mantive hardcoded conforme seu snippet, mas idealmente use var.mp_access_token
     MP_ACCESS_TOKEN         = "TEST-3645506064282139-010508-daf199203ea82aa3e7ed6e2daf9e4edb-424720501"
     SUPABASE_URL            = var.supabase_url
     SUPABASE_KEY            = var.supabase_key
+    MELHOR_ENVIO_TOKEN      = var.melhor_envio_token
+    MELHOR_ENVIO_API_URL    = var.melhor_envio_api_url
+    CEP_ORIGEM              = var.cep_origem
     POWERTOOLS_SERVICE_NAME = "payment"
   }
 

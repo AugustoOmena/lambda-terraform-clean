@@ -37,7 +37,7 @@ class TestPaymentInputValidation:
     """Testes de validação básica do PaymentInput."""
 
     def test_payment_input_requires_mandatory_fields(self) -> None:
-        """transaction_amount, payment_method_id, payer, user_id e items são obrigatórios."""
+        """transaction_amount, payment_method_id, payer, user_id, items, frete e cep são obrigatórios."""
         with pytest.raises(ValidationError) as exc_info:
             PaymentInput()
         
@@ -49,6 +49,8 @@ class TestPaymentInputValidation:
         assert "payer" in required_fields
         assert "user_id" in required_fields
         assert "items" in required_fields
+        assert "frete" in required_fields
+        assert "cep" in required_fields
 
     def test_payment_input_default_installments_is_1(self) -> None:
         """installments deve ter valor padrão 1."""
@@ -60,9 +62,70 @@ class TestPaymentInputValidation:
                 identification=Identification(number="12345678900")
             ),
             user_id="user-123",
-            items=[Item(id=1, name="Produto", price=100.0, quantity=1)]
+            items=[Item(id=1, name="Produto", price=100.0, quantity=1)],
+            frete=25.90,
+            cep="01310100",
         )
         assert payload.installments == 1
+
+    def test_payment_input_cep_normalized_to_eight_digits(self) -> None:
+        """CEP com formatação (01310-100) é normalizado para 8 dígitos."""
+        payload = PaymentInput(
+            transaction_amount=100.0,
+            payment_method_id="pix",
+            payer=Payer(email="a@b.com", identification=Identification(number="12345678900")),
+            user_id="u",
+            items=[Item(id=1, name="P", price=100.0, quantity=1)],
+            frete=25.90,
+            cep="01310-100",
+        )
+        assert payload.cep == "01310100"
+
+    def test_payment_input_cep_invalid_length_raises(self) -> None:
+        """CEP com menos ou mais de 8 dígitos levanta ValidationError."""
+        with pytest.raises(ValidationError):
+            PaymentInput(
+                transaction_amount=100.0,
+                payment_method_id="pix",
+                payer=Payer(email="a@b.com", identification=Identification(number="12345678900")),
+                user_id="u",
+                items=[Item(id=1, name="P", price=100.0, quantity=1)],
+                frete=25.90,
+                cep="1234567",
+            )
+        with pytest.raises(ValidationError):
+            PaymentInput(
+                transaction_amount=100.0,
+                payment_method_id="pix",
+                payer=Payer(email="a@b.com", identification=Identification(number="12345678900")),
+                user_id="u",
+                items=[Item(id=1, name="P", price=100.0, quantity=1)],
+                frete=25.90,
+                cep="123456789",
+            )
+
+    def test_payment_input_frete_ge_zero(self) -> None:
+        """frete deve ser >= 0."""
+        payload = PaymentInput(
+            transaction_amount=100.0,
+            payment_method_id="pix",
+            payer=Payer(email="a@b.com", identification=Identification(number="12345678900")),
+            user_id="u",
+            items=[Item(id=1, name="P", price=100.0, quantity=1)],
+            frete=0.0,
+            cep="01310100",
+        )
+        assert payload.frete == 0.0
+        with pytest.raises(ValidationError):
+            PaymentInput(
+                transaction_amount=100.0,
+                payment_method_id="pix",
+                payer=Payer(email="a@b.com", identification=Identification(number="12345678900")),
+                user_id="u",
+                items=[Item(id=1, name="P", price=100.0, quantity=1)],
+                frete=-1.0,
+                cep="01310100",
+            )
 
     def test_item_default_size_is_unico(self) -> None:
         """size padrão de Item deve ser 'Único'."""

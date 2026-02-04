@@ -36,8 +36,15 @@ class Item(BaseModel):
     image: Optional[str] = None 
     size: Optional[str] = "Único"
 
+def _normalize_cep(v: str) -> str:
+    digits = "".join(c for c in str(v).strip() if c.isdigit())
+    if len(digits) != 8:
+        raise ValueError("CEP deve conter 8 dígitos")
+    return digits
+
+
 class PaymentInput(BaseModel):
-    token: Optional[str] = None 
+    token: Optional[str] = None
     transaction_amount: float
     payment_method_id: str
     installments: int = 1
@@ -45,3 +52,10 @@ class PaymentInput(BaseModel):
     payer: Payer
     user_id: str
     items: List[Item]
+    frete: float = Field(..., ge=0, description="Valor do frete em R$ (validado na API Melhor Envio)")
+    cep: str = Field(..., description="CEP de destino, 8 dígitos")
+
+    @field_validator("cep", mode="before")
+    @classmethod
+    def validate_cep(cls, v: str) -> str:
+        return _normalize_cep(v)

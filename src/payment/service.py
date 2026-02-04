@@ -1,7 +1,18 @@
 import mercadopago
 import os
 from decimal import Decimal, ROUND_HALF_UP
+
+from shared.melhor_envio import MelhorEnvioAPIError, get_quote
+
 from repository import PaymentRepository
+
+# Dimensões padrão por item para cotação (roupas de praia): cm e kg.
+DEFAULT_WIDTH_CM = 30
+DEFAULT_HEIGHT_CM = 20
+DEFAULT_LENGTH_CM = 5
+DEFAULT_WEIGHT_KG = 0.5
+FREIGHT_TOLERANCE = Decimal("0.01")
+
 
 class PaymentService:
     def __init__(self):
@@ -9,6 +20,31 @@ class PaymentService:
         self.mp = mercadopago.SDK(os.environ.get("MP_ACCESS_TOKEN"))
 
     def process_payment(self, payload):
+        # 0. Validação de frete: valor enviado deve coincidir com cotação Melhor Envio
+        products = [
+            {
+                "width": DEFAULT_WIDTH_CM,
+                "height": DEFAULT_HEIGHT_CM,
+                "length": DEFAULT_LENGTH_CM,
+                "weight": DEFAULT_WEIGHT_KG,
+                "quantity": item.quantity,
+                "insurance_value": 0,
+            }
+            for item in payload.items
+        ]
+        try:
+            opcoes = get_quote(payload.cep, products)
+        except MelhorEnvioAPIError as e:
+            raise MelhorEnvioAPIError(f"Frete: não foi possível validar com a transportadora. {e}") from e
+        precos_validos = [Decimal(str(o["preco"])) for o in opcoes if o.get("preco") is not None]
+        if not precos_validos:
+            raise ValueError("Frete: nenhuma opção de frete disponível para o CEP informado.")
+        frete_enviado = Decimal(str(payload.frete)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        if not any(abs(frete_enviado - p) <= FREIGHT_TOLERANCE for p in precos_validos):
+            raise ValueError(
+                "Frete: valor enviado não confere com a cotação para o CEP. Recalcule o frete no checkout."
+            )
+
         # 1. Auditoria de Preços (Com Debug)
         total_calculado = Decimal('0.00')
         log_detalhado = [] # Vamos guardar o log de cada item para o erro

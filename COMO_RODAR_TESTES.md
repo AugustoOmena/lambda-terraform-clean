@@ -80,6 +80,12 @@ pytest
 python3 -m pytest
 ```
 
+### **Rodar todos (shipping + shared + payment) em duas invocações**
+Por causa do conflito de módulos `schemas`/`service` entre shipping e payment, rode primeiro shipping e depois o restante:
+```bash
+python3 -m pytest tests/shipping/ -q && python3 -m pytest tests/shared/ tests/payment/ tests/orders/ tests/products/ tests/profiles/ -q
+```
+
 ### **Rodar testes de um módulo específico**
 ```bash
 pytest tests/payment/ -v
