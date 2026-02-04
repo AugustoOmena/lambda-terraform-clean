@@ -31,8 +31,6 @@ def get_firebase_db():
         client_email = os.environ.get("FIREBASE_CLIENT_EMAIL")
         private_key = os.environ.get("FIREBASE_PRIVATE_KEY")
         database_url = os.environ.get("FIREBASE_DATABASE_URL")
-        melhor_envio_token = os.environ.get("MELHOR_ENVIO_TOKEN")
-        cep_origem = os.environ.get("CEP_ORIGEM")
         
         if not all([project_id, client_email, private_key, database_url]):
             raise ValueError("Firebase credentials missing (ENV VARS)")
