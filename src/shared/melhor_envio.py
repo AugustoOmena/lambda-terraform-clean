@@ -54,10 +54,18 @@ def _parse_quote_option(entry: dict[str, Any]) -> dict[str, Any] | None:
         days = int(delivery) if delivery is not None else None
     except (TypeError, ValueError):
         days = None
+    service_id = (
+        entry.get("service")
+        or (entry.get("company") or {}).get("id")
+        or (entry.get("company") or {}).get("code")
+        or entry.get("id")
+    )
+    service = str(service_id).strip() if service_id is not None else None
     return {
         "transportadora": name,
         "preco": round(price_float, 2),
         "prazo_entrega_dias": days,
+        "service": service,
     }
 
 
@@ -107,7 +115,7 @@ def get_quote(cep_destino: str, products: list[dict[str, Any]]) -> list[dict[str
                   quantity, and optional insurance_value (default 0). Optional "id" per product.
 
     Returns:
-        List of dicts with keys: transportadora, preco, prazo_entrega_dias.
+        List of dicts with keys: transportadora, preco, prazo_entrega_dias, service (id do serviço Melhor Envio).
 
     Raises:
         MelhorEnvioAPIError: On missing env, connection/timeout or API error.

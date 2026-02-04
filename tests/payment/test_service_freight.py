@@ -22,7 +22,7 @@ def mock_mercadopago():
         yield mock_mp
 
 
-def _payload(frete: float = 25.90, cep: str = "01310100") -> PaymentInput:
+def _payload(frete: float = 25.90, cep: str = "01310100", frete_service: str = "jadlog_package") -> PaymentInput:
     return PaymentInput(
         transaction_amount=100.00,
         payment_method_id="pix",
@@ -34,8 +34,13 @@ def _payload(frete: float = 25.90, cep: str = "01310100") -> PaymentInput:
         user_id="user-123",
         items=[Item(id=1, name="Produto", price=100.0, quantity=1)],
         frete=frete,
+        frete_service=frete_service,
         cep=cep,
     )
+
+
+OPTION_PAC = {"transportadora": "PAC", "preco": 25.90, "prazo_entrega_dias": 8, "service": "jadlog_package"}
+OPTION_JADLOG = {"transportadora": "Jadlog", "preco": 31.00, "prazo_entrega_dias": 5, "service": "jadlog_another"}
 
 
 class TestPaymentServiceFreightValidation:
@@ -45,9 +50,7 @@ class TestPaymentServiceFreightValidation:
         self, mock_repository: MagicMock, mock_mercadopago: MagicMock
     ) -> None:
         with patch("src.payment.service.get_quote") as mock_get_quote:
-            mock_get_quote.return_value = [
-                {"transportadora": "PAC", "preco": 25.90, "prazo_entrega_dias": 8},
-            ]
+            mock_get_quote.return_value = [OPTION_PAC]
             mock_repository.get_product_price.return_value = {"id": 1, "price": 100.00}
             mock_mp = mock_mercadopago.return_value
             mock_mp.payment.return_value.create.return_value = {
@@ -70,7 +73,7 @@ class TestPaymentServiceFreightValidation:
         self, mock_repository: MagicMock, mock_mercadopago: MagicMock
     ) -> None:
         with patch("src.payment.service.get_quote") as mock_get_quote:
-            mock_get_quote.return_value = [{"transportadora": "PAC", "preco": 25.90, "prazo_entrega_dias": 8}]
+            mock_get_quote.return_value = [OPTION_PAC]
             mock_repository.get_product_price.return_value = {"id": 1, "price": 100.00}
             mock_mp = mock_mercadopago.return_value
             mock_mp.payment.return_value.create.return_value = {
@@ -88,9 +91,7 @@ class TestPaymentServiceFreightValidation:
         self, mock_repository: MagicMock, mock_mercadopago: MagicMock
     ) -> None:
         with patch("src.payment.service.get_quote") as mock_get_quote:
-            mock_get_quote.return_value = [
-                {"transportadora": "PAC", "preco": 25.90, "prazo_entrega_dias": 8},
-            ]
+            mock_get_quote.return_value = [OPTION_PAC]
             service = PaymentService()
             with pytest.raises(ValueError) as exc_info:
                 service.process_payment(_payload(frete=15.00))
@@ -118,14 +119,11 @@ class TestPaymentServiceFreightValidation:
             assert "Frete" in str(exc_info.value) or "Timeout" in str(exc_info.value)
             mock_repository.get_product_price.assert_not_called()
 
-    def test_freight_matches_any_option(
+    def test_freight_matches_chosen_service_option(
         self, mock_repository: MagicMock, mock_mercadopago: MagicMock
     ) -> None:
         with patch("src.payment.service.get_quote") as mock_get_quote:
-            mock_get_quote.return_value = [
-                {"transportadora": "PAC", "preco": 25.90, "prazo_entrega_dias": 8},
-                {"transportadora": "Jadlog", "preco": 31.00, "prazo_entrega_dias": 5},
-            ]
+            mock_get_quote.return_value = [OPTION_PAC, OPTION_JADLOG]
             mock_repository.get_product_price.return_value = {"id": 1, "price": 100.00}
             mock_mp = mock_mercadopago.return_value
             mock_mp.payment.return_value.create.return_value = {
@@ -135,5 +133,15 @@ class TestPaymentServiceFreightValidation:
             mock_repository.create_order.return_value = {"id": "order-1"}
 
             service = PaymentService()
-            service.process_payment(_payload(frete=31.00))
+            service.process_payment(_payload(frete=31.00, frete_service="jadlog_another"))
             mock_repository.create_order.assert_called_once()
+
+    def test_freight_service_not_found_raises_value_error(
+        self, mock_repository: MagicMock, mock_mercadopago: MagicMock
+    ) -> None:
+        with patch("src.payment.service.get_quote") as mock_get_quote:
+            mock_get_quote.return_value = [OPTION_PAC]
+            service = PaymentService()
+            with pytest.raises(ValueError) as exc_info:
+                service.process_payment(_payload(frete=25.90, frete_service="servico_inexistente"))
+            assert "não encontrado" in str(exc_info.value) or "Recalcule" in str(exc_info.value)

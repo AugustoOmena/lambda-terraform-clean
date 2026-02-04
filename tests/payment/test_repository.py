@@ -324,6 +324,7 @@ class TestPaymentRepositoryCreateOrder:
                 Item(id=2, name="Produto B", price=50.00, quantity=1)
             ],
             frete=25.90,
+            frete_service="jadlog_package",
             cep="01310100",
         )
         
@@ -389,6 +390,7 @@ class TestPaymentRepositoryCreateOrder:
             user_id="user-123",
             items=[Item(id=1, name="Produto", price=100.00, quantity=1)],
             frete=25.90,
+            frete_service="jadlog_package",
             cep="01310100",
         )
         
@@ -427,6 +429,7 @@ class TestPaymentRepositoryCreateOrder:
             user_id="user-123",
             items=[],  # Lista vazia
             frete=25.90,
+            frete_service="jadlog_package",
             cep="01310100",
         )
         

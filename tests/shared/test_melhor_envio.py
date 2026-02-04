@@ -31,6 +31,14 @@ class TestParseQuoteOption:
         assert out["transportadora"] == "Jadlog"
         assert out["preco"] == 31.00
 
+    def test_includes_service_id_when_present(self) -> None:
+        entry = {"name": "Jadlog", "price": 25.90, "service": "jadlog_package"}
+        out = _parse_quote_option(entry)
+        assert out["service"] == "jadlog_package"
+        entry2 = {"name": "PAC", "price": 20.00, "id": 1}
+        out2 = _parse_quote_option(entry2)
+        assert out2["service"] == "1"
+
     def test_returns_none_when_no_price(self) -> None:
         assert _parse_quote_option({"name": "X"}) is None
         assert _parse_quote_option({}) is None

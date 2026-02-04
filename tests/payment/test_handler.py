@@ -68,6 +68,7 @@ class TestPaymentLambdaHandler:
             "user_id": "user-123",
             "items": [{"id": 1, "name": "Produto Teste", "price": 100.00, "quantity": 1}],
             "frete": 25.90,
+            "frete_service": "jadlog_package",
             "cep": "01310100",
         })
         
@@ -165,10 +166,11 @@ class TestPaymentLambdaHandler:
             "installments": 1,
             "payer": {"email": "test@example.com", "identification": {"number": "12345678900"}},
             "user_id": "user-123",
-            "items": [{"id": 1, "name": "Produto", "price": 100.00, "quantity": 1}],
-            "frete": 25.90,
-            "cep": "01310100",
-        })
+                "items": [{"id": 1, "name": "Produto", "price": 100.00, "quantity": 1}],
+                "frete": 25.90,
+                "frete_service": "jadlog_package",
+                "cep": "01310100",
+            })
         
         # Act
         response = lambda_handler(event, None)
@@ -223,6 +225,7 @@ class TestPaymentLambdaHandler:
             "user_id": "user-123",
             "items": [{"id": 1, "name": "Produto", "price": 100.00, "quantity": 1}],
             "frete": 25.90,
+            "frete_service": "jadlog_package",
             "cep": "01310100",
         })
         
@@ -259,6 +262,7 @@ class TestPaymentLambdaHandler:
             "user_id": "user-pix",
             "items": [{"id": 2, "name": "Produto PIX", "price": 50.00, "quantity": 1}],
             "frete": 25.90,
+            "frete_service": "jadlog_package",
             "cep": "01310100",
         })
         
@@ -304,6 +308,7 @@ class TestPaymentLambdaHandler:
             "user_id": "user-card",
             "items": [{"id": 3, "name": "Produto Caro", "price": 300.00, "quantity": 1}],
             "frete": 25.90,
+            "frete_service": "jadlog_package",
             "cep": "01310100",
         })
         
@@ -336,6 +341,7 @@ class TestPaymentLambdaHandler:
             "user_id": "user-1",
             "items": [{"id": 1, "name": "P", "price": 100.00, "quantity": 1}],
             "frete": 25.90,
+            "frete_service": "jadlog_package",
             "cep": "01310100",
         })
         response = lambda_handler(event, None)

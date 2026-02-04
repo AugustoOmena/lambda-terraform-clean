@@ -2,7 +2,7 @@
 Handler for shipping (freight quote) microservice.
 
 POST body: { "cep_destino": "01310100", "itens": [ { "width": 11, "height": 17, "length": 11, "weight": 0.3 } ] }
-Response: { "opcoes": [ { "transportadora": "...", "preco": 25.90, "prazo_entrega_dias": 8 } ] }
+Response: { "opcoes": [ { "transportadora": "...", "preco": 25.90, "prazo_entrega_dias": 8, "service": "jadlog_package" } ] }
 """
 
 import json

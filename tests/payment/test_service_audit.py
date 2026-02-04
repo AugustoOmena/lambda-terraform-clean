@@ -38,15 +38,16 @@ def valid_payment_payload():
         user_id="user-123",
         items=[Item(id=1, name="Camiseta", price=50.00, quantity=2)],
         frete=25.90,
+        frete_service="jadlog_package",
         cep="01310100",
     )
 
 
 @pytest.fixture
 def mock_get_quote():
-    """Mock get_quote para passar na validação de frete (valor 25.90)."""
+    """Mock get_quote para passar na validação de frete (valor 25.90, service jadlog_package)."""
     with patch("src.payment.service.get_quote") as m:
-        m.return_value = [{"transportadora": "PAC", "preco": 25.90, "prazo_entrega_dias": 8}]
+        m.return_value = [{"transportadora": "PAC", "preco": 25.90, "prazo_entrega_dias": 8, "service": "jadlog_package"}]
         yield m
 
 
@@ -177,6 +178,7 @@ class TestPaymentServiceAudit:
             user_id="user-123",
             items=[],  # LISTA VAZIA
             frete=25.90,
+            frete_service="jadlog_package",
             cep="01310100",
         )
         
@@ -217,6 +219,7 @@ class TestPaymentServiceAudit:
                 Item(id=2, name="Boné", price=20.00, quantity=1),
             ],
             frete=25.90,
+            frete_service="jadlog_package",
             cep="01310100",
         )
         

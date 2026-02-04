@@ -17,9 +17,9 @@ def mock_repository():
 
 @pytest.fixture
 def mock_get_quote():
-    """Mock get_quote para validação de frete (valor 25.90)."""
+    """Mock get_quote para validação de frete (valor 25.90, service jadlog_package)."""
     with patch("src.payment.service.get_quote") as m:
-        m.return_value = [{"transportadora": "PAC", "preco": 25.90, "prazo_entrega_dias": 8}]
+        m.return_value = [{"transportadora": "PAC", "preco": 25.90, "prazo_entrega_dias": 8, "service": "jadlog_package"}]
         yield m
 
 
@@ -53,6 +53,7 @@ def valid_pix_payload():
         user_id="user-abc-123",
         items=[Item(id=1, name="Camiseta", price=50.00, quantity=2, size="M")],
         frete=25.90,
+        frete_service="jadlog_package",
         cep="01310100",
     )
 
@@ -75,6 +76,7 @@ def valid_card_payload():
         user_id="user-xyz-789",
         items=[Item(id=2, name="Calça", price=150.00, quantity=1, size="G")],
         frete=25.90,
+        frete_service="jadlog_package",
         cep="01310100",
     )
 
@@ -206,6 +208,7 @@ class TestPaymentServiceIntegration:
         boleto_payload = PaymentInput(
             transaction_amount=200.00,
             frete=25.90,
+            frete_service="jadlog_package",
             cep="01310100",
             payment_method_id="bolbradesco",
             installments=1,
@@ -336,6 +339,7 @@ class TestPaymentServiceIntegration:
         card_payload_no_token = PaymentInput(
             transaction_amount=100.00,
             frete=25.90,
+            frete_service="jadlog_package",
             cep="01310100",
             payment_method_id="visa",
             installments=2,
@@ -409,6 +413,7 @@ class TestPaymentServiceIntegration:
         payload_with_address = PaymentInput(
             transaction_amount=50.00,
             frete=25.90,
+            frete_service="jadlog_package",
             cep="01310100",
             payment_method_id="pix",
             payer=Payer(

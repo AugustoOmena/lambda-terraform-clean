@@ -53,6 +53,7 @@ class PaymentInput(BaseModel):
     user_id: str
     items: List[Item]
     frete: float = Field(..., ge=0, description="Valor do frete em R$ (validado na API Melhor Envio)")
+    frete_service: str = Field(..., min_length=1, description="Identificador do serviço escolhido (retornado em opcoes[].service no GET /frete)")
     cep: str = Field(..., description="CEP de destino, 8 dígitos")
 
     @field_validator("cep", mode="before")

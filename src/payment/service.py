@@ -36,13 +36,22 @@ class PaymentService:
             opcoes = get_quote(payload.cep, products)
         except MelhorEnvioAPIError as e:
             raise MelhorEnvioAPIError(f"Frete: não foi possível validar com a transportadora. {e}") from e
-        precos_validos = [Decimal(str(o["preco"])) for o in opcoes if o.get("preco") is not None]
-        if not precos_validos:
+        if not opcoes:
             raise ValueError("Frete: nenhuma opção de frete disponível para o CEP informado.")
-        frete_enviado = Decimal(str(payload.frete)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        if not any(abs(frete_enviado - p) <= FREIGHT_TOLERANCE for p in precos_validos):
+        frete_service = (payload.frete_service or "").strip()
+        opcao_escolhida = next(
+            (o for o in opcoes if o.get("service") and str(o["service"]).strip() == frete_service),
+            None,
+        )
+        if not opcao_escolhida:
             raise ValueError(
-                "Frete: valor enviado não confere com a cotação para o CEP. Recalcule o frete no checkout."
+                "Frete: serviço escolhido não encontrado na cotação. Recalcule o frete no checkout."
+            )
+        preco_opcao = Decimal(str(opcao_escolhida["preco"]))
+        frete_enviado = Decimal(str(payload.frete)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        if abs(frete_enviado - preco_opcao) > FREIGHT_TOLERANCE:
+            raise ValueError(
+                "Frete: valor enviado não confere com a cotação do serviço escolhido. Recalcule o frete no checkout."
             )
 
         # 1. Auditoria de Preços (Com Debug)

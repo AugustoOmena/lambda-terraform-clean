@@ -50,6 +50,7 @@ class TestPaymentInputValidation:
         assert "user_id" in required_fields
         assert "items" in required_fields
         assert "frete" in required_fields
+        assert "frete_service" in required_fields
         assert "cep" in required_fields
 
     def test_payment_input_default_installments_is_1(self) -> None:
@@ -64,6 +65,7 @@ class TestPaymentInputValidation:
             user_id="user-123",
             items=[Item(id=1, name="Produto", price=100.0, quantity=1)],
             frete=25.90,
+            frete_service="jadlog_package",
             cep="01310100",
         )
         assert payload.installments == 1
@@ -77,6 +79,7 @@ class TestPaymentInputValidation:
             user_id="u",
             items=[Item(id=1, name="P", price=100.0, quantity=1)],
             frete=25.90,
+            frete_service="jadlog_package",
             cep="01310-100",
         )
         assert payload.cep == "01310100"
@@ -91,6 +94,7 @@ class TestPaymentInputValidation:
                 user_id="u",
                 items=[Item(id=1, name="P", price=100.0, quantity=1)],
                 frete=25.90,
+                frete_service="jadlog_package",
                 cep="1234567",
             )
         with pytest.raises(ValidationError):
@@ -101,6 +105,7 @@ class TestPaymentInputValidation:
                 user_id="u",
                 items=[Item(id=1, name="P", price=100.0, quantity=1)],
                 frete=25.90,
+                frete_service="jadlog_package",
                 cep="123456789",
             )
 
@@ -113,6 +118,7 @@ class TestPaymentInputValidation:
             user_id="u",
             items=[Item(id=1, name="P", price=100.0, quantity=1)],
             frete=0.0,
+            frete_service="jadlog_package",
             cep="01310100",
         )
         assert payload.frete == 0.0
@@ -124,6 +130,7 @@ class TestPaymentInputValidation:
                 user_id="u",
                 items=[Item(id=1, name="P", price=100.0, quantity=1)],
                 frete=-1.0,
+                frete_service="jadlog_package",
                 cep="01310100",
             )
 
