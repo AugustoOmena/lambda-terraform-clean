@@ -301,6 +301,50 @@ resource "aws_lambda_permission" "api_gw_orders" {
   source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*/pedidos*"
 }
 
+# --- 7. MICROSERVIÇO: SHIPPING (Cálculo de frete - Melhor Envio) ---
+module "shipping_lambda" {
+  source = "../../modules/lambda_function"
+
+  function_name = "loja-omena-shipping"
+  handler       = "handler.lambda_handler"
+  source_dir    = "../../../src/shipping"
+
+  layers = [
+    aws_lambda_layer_version.main_dependencies.arn,
+    aws_lambda_layer_version.shared_code.arn
+  ]
+
+  environment_variables = {
+    MELHOR_ENVIO_TOKEN    = var.melhor_envio_token
+    MELHOR_ENVIO_API_URL  = var.melhor_envio_api_url
+    CEP_ORIGEM            = var.cep_origem
+    POWERTOOLS_SERVICE_NAME = "shipping"
+  }
+
+  tags = { Project = "LojaOmena", Env = "Prod" }
+}
+
+resource "aws_apigatewayv2_integration" "shipping" {
+  api_id                 = aws_apigatewayv2_api.main.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = module.shipping_lambda.invoke_arn
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_route" "shipping" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /frete"
+  target    = "integrations/${aws_apigatewayv2_integration.shipping.id}"
+}
+
+resource "aws_lambda_permission" "api_gw_shipping" {
+  statement_id  = "AllowExecutionFromAPIGateway"
+  action        = "lambda:InvokeFunction"
+  function_name = module.shipping_lambda.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*/frete"
+}
+
 # --- OUTPUT ---
 output "api_url" {
   value = aws_apigatewayv2_api.main.api_endpoint

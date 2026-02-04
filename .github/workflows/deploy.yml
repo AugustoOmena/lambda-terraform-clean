@@ -24,6 +24,7 @@ jobs:
       TF_VAR_firebase_client_email: ${{ secrets.TF_VAR_FIREBASE_CLIENT_EMAIL }}
       TF_VAR_firebase_private_key: ${{ secrets.TF_VAR_FIREBASE_PRIVATE_KEY }}
       TF_VAR_firebase_database_url: ${{ secrets.TF_VAR_FIREBASE_DATABASE_URL }}
+      MELHOR_ENVIO_TOKEN: ${{ secrets.MELHOR_ENVIO_TOKEN }}
 
     defaults:
       run:

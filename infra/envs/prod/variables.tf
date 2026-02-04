@@ -37,3 +37,20 @@ variable "firebase_database_url" {
   type        = string
   sensitive   = true
 }
+
+variable "melhor_envio_token" {
+  description = "Token da API Melhor Envio (Sandbox ou produção)"
+  type        = string
+  sensitive   = true
+}
+
+variable "cep_origem" {
+  description = "CEP de origem do envio (8 dígitos)"
+  type        = string
+}
+
+variable "melhor_envio_api_url" {
+  description = "URL base da API Melhor Envio (opcional; default = sandbox)"
+  type        = string
+  default     = "https://sandbox.melhorenvio.com.br"
+}
