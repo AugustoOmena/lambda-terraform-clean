@@ -111,11 +111,20 @@ class ProductService:
     def _sync_consolidated_to_firebase(self, product_id: int, product: dict, variants: list):
         """Sincroniza produto + variantes no Firebase no formato consolidado."""
         try:
+            price_raw = product.get("price")
+            price = float(price_raw) if price_raw is not None else 0.0
+            images = product.get("images") or []
+            if not images and product.get("image"):
+                images = [product["image"]]
             payload = {
                 "id": str(product_id),
                 "name": product.get("name") or "",
+                "description": product.get("description") or "",
                 "material": product.get("material") or "",
                 "print": product.get("pattern") or "",
+                "price": price,
+                "image": product.get("image") or "",
+                "images": images,
                 "variants": [
                     {"color": v.get("color", ""), "size": v.get("size", ""), "stock": int(v.get("stock_quantity", 0))}
                     for v in variants

@@ -105,7 +105,7 @@ def set_product_in_firebase(product_dict: Dict[str, Any]) -> None:
 def set_product_consolidated(payload: Dict[str, Any]) -> None:
     """
     Writes consolidated product JSON to Firebase at /products/{id}.
-    Payload shape: {"id", "name", "material", "print", "variants": [{"color", "size", "stock"}, ...]}.
+    Payload shape: id, name, description, material, print, price, image, images, variants.
     """
     product_id = payload.get("id")
     if product_id is None:

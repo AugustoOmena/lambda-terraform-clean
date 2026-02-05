@@ -39,11 +39,20 @@ class PaymentRepository:
             return None
         res = self.db.table("product_variants").select("color, size, stock_quantity").eq("product_id", product_id).execute()
         variants = [{"color": r["color"], "size": r["size"], "stock": int(r.get("stock_quantity", 0))} for r in (res.data or [])]
+        price_raw = prod.get("price")
+        price = float(price_raw) if price_raw is not None else 0.0
+        images = prod.get("images") or []
+        if not images and prod.get("image"):
+            images = [prod["image"]]
         return {
             "id": str(product_id),
             "name": prod.get("name") or "",
+            "description": prod.get("description") or "",
             "material": prod.get("material") or "",
             "print": prod.get("pattern") or "",
+            "price": price,
+            "image": prod.get("image") or "",
+            "images": images,
             "variants": variants,
         }
 
