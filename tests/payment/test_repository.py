@@ -78,6 +78,43 @@ class TestPaymentRepositoryGetProductPrice:
         assert result is None
 
 
+class TestPaymentRepositoryGetProductPriceAndStock:
+    """Testes para get_product_price_and_stock (preço + estoque para pagamento)."""
+
+    def test_get_product_price_and_stock_found(self, mock_supabase_client: MagicMock) -> None:
+        mock_table = MagicMock()
+        mock_select = MagicMock()
+        mock_eq = MagicMock()
+        mock_execute = MagicMock()
+        mock_supabase_client.table.return_value = mock_table
+        mock_table.select.return_value = mock_select
+        mock_select.eq.return_value = mock_eq
+        mock_eq.execute.return_value = mock_execute
+        mock_execute.data = [{"id": 1, "price": 50.00, "stock": {"Único": 10}, "quantity": 10}]
+
+        repo = PaymentRepository()
+        result = repo.get_product_price_and_stock(1)
+
+        assert result == {"id": 1, "price": 50.00, "stock": {"Único": 10}, "quantity": 10}
+        mock_table.select.assert_called_once_with("id, price, stock, quantity")
+
+    def test_get_product_price_and_stock_not_found(self, mock_supabase_client: MagicMock) -> None:
+        mock_table = MagicMock()
+        mock_select = MagicMock()
+        mock_eq = MagicMock()
+        mock_execute = MagicMock()
+        mock_supabase_client.table.return_value = mock_table
+        mock_table.select.return_value = mock_select
+        mock_select.eq.return_value = mock_eq
+        mock_eq.execute.return_value = mock_execute
+        mock_execute.data = []
+
+        repo = PaymentRepository()
+        result = repo.get_product_price_and_stock(999)
+
+        assert result is None
+
+
 class TestPaymentRepositoryUpdateStock:
     """Testes para o método update_stock (lógica complexa de JSON stock)."""
 

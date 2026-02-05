@@ -96,7 +96,7 @@ class TestPaymentServiceIntegration:
         Esperado: Payload correto enviado ao MP, order criada, estoque atualizado.
         """
         # Arrange: Auditoria passa
-        mock_repository.get_product_price.return_value = {"id": 1, "price": 50.00}
+        mock_repository.get_product_price_and_stock.return_value = {"id": 1, "price": 50.00, "stock": {"Único": 100}, "quantity": 100}
         
         # Mock retorno do Mercado Pago com QR Code
         mock_payment_method = MagicMock()
@@ -159,7 +159,7 @@ class TestPaymentServiceIntegration:
         Esperado: Payload inclui token, installments e issuer_id.
         """
         # Arrange
-        mock_repository.get_product_price.return_value = {"id": 2, "price": 150.00}
+        mock_repository.get_product_price_and_stock.return_value = {"id": 2, "price": 150.00, "stock": {"Único": 100}, "quantity": 100}
         
         mock_payment_method = MagicMock()
         mock_mercadopago.payment.return_value = mock_payment_method
@@ -222,7 +222,7 @@ class TestPaymentServiceIntegration:
             items=[Item(id=3, name="Tênis", price=200.00, quantity=1)]
         )
         
-        mock_repository.get_product_price.return_value = {"id": 3, "price": 200.00}
+        mock_repository.get_product_price_and_stock.return_value = {"id": 3, "price": 200.00, "stock": {"Único": 100}, "quantity": 100}
         
         mock_payment_method = MagicMock()
         mock_mercadopago.payment.return_value = mock_payment_method
@@ -264,7 +264,7 @@ class TestPaymentServiceIntegration:
         Esperado: Lança Exception, create_order NÃO é chamado.
         """
         # Arrange
-        mock_repository.get_product_price.return_value = {"id": 1, "price": 50.00}
+        mock_repository.get_product_price_and_stock.return_value = {"id": 1, "price": 50.00, "stock": {"Único": 100}, "quantity": 100}
         
         mock_payment_method = MagicMock()
         mock_mercadopago.payment.return_value = mock_payment_method
@@ -303,7 +303,7 @@ class TestPaymentServiceIntegration:
         Esperado: Lança Exception genérica, create_order NÃO é chamado.
         """
         # Arrange
-        mock_repository.get_product_price.return_value = {"id": 2, "price": 150.00}
+        mock_repository.get_product_price_and_stock.return_value = {"id": 2, "price": 150.00, "stock": {"Único": 100}, "quantity": 100}
         
         mock_payment_method = MagicMock()
         mock_mercadopago.payment.return_value = mock_payment_method
@@ -353,7 +353,7 @@ class TestPaymentServiceIntegration:
             ]
         )
         
-        mock_repository.get_product_price.return_value = {"id": 1, "price": 100.00}
+        mock_repository.get_product_price_and_stock.return_value = {"id": 1, "price": 100.00, "stock": {"Único": 100}, "quantity": 100}
         
         # Act & Assert
         service = PaymentService()
@@ -376,7 +376,7 @@ class TestPaymentServiceIntegration:
         Cenário: Banco retorna preço 50.25 (subtotal 100.50); total = 100.50 + 25.90 = 126.40.
         Front envia 126.40. Esperado: MP recebe 126.40 (subtotal back + frete).
         """
-        mock_repository.get_product_price.return_value = {"id": 1, "price": 50.25}
+        mock_repository.get_product_price_and_stock.return_value = {"id": 1, "price": 50.25, "stock": {"Único": 100}, "quantity": 100}
         mock_payment_method = MagicMock()
         mock_mercadopago.payment.return_value = mock_payment_method
         mock_payment_method.create.return_value = {
@@ -437,7 +437,7 @@ class TestPaymentServiceIntegration:
             items=[Item(id=1, name="Item", price=50.00, quantity=1)]
         )
         
-        mock_repository.get_product_price.return_value = {"id": 1, "price": 50.00}
+        mock_repository.get_product_price_and_stock.return_value = {"id": 1, "price": 50.00, "stock": {"Único": 100}, "quantity": 100}
         
         mock_payment_method = MagicMock()
         mock_mercadopago.payment.return_value = mock_payment_method

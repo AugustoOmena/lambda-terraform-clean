@@ -1,6 +1,7 @@
 import importlib.util
 import sys
 from pathlib import Path
+from unittest.mock import MagicMock
 
 _root = Path(__file__).resolve().parents[2]
 payment_path = str(_root / "src" / "payment")
@@ -10,6 +11,11 @@ for path in [payment_path, src_path]:
     if path in sys.path:
         sys.path.remove(path)
     sys.path.insert(0, path)
+
+# Evita importar firebase_admin (não instalado em dev); service importa shared.firebase
+_safe_firebase = MagicMock()
+_safe_firebase.decrement_products_quantity = lambda items: None
+sys.modules["shared.firebase"] = _safe_firebase
 
 # Garante que "from schemas import" e "from service import" no handler de payment resolvam para payment
 for _name, _file in (("schemas", "schemas.py"), ("service", "service.py")):

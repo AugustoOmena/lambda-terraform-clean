@@ -51,7 +51,7 @@ class TestPaymentServiceFreightValidation:
     ) -> None:
         with patch("src.payment.service.get_quote") as mock_get_quote:
             mock_get_quote.return_value = [OPTION_PAC]
-            mock_repository.get_product_price.return_value = {"id": 1, "price": 100.00}
+            mock_repository.get_product_price_and_stock.return_value = {"id": 1, "price": 100.00, "stock": {"Único": 100}, "quantity": 100}
             mock_mp = mock_mercadopago.return_value
             mock_mp.payment.return_value.create.return_value = {
                 "status": 201,
@@ -74,7 +74,7 @@ class TestPaymentServiceFreightValidation:
     ) -> None:
         with patch("src.payment.service.get_quote") as mock_get_quote:
             mock_get_quote.return_value = [OPTION_PAC]
-            mock_repository.get_product_price.return_value = {"id": 1, "price": 100.00}
+            mock_repository.get_product_price_and_stock.return_value = {"id": 1, "price": 100.00, "stock": {"Único": 100}, "quantity": 100}
             mock_mp = mock_mercadopago.return_value
             mock_mp.payment.return_value.create.return_value = {
                 "status": 201,
@@ -96,7 +96,7 @@ class TestPaymentServiceFreightValidation:
             with pytest.raises(ValueError) as exc_info:
                 service.process_payment(_payload(frete=15.00))
             assert "não confere" in str(exc_info.value) or "Recalcule" in str(exc_info.value)
-            mock_repository.get_product_price.assert_not_called()
+            mock_repository.get_product_price_and_stock.assert_not_called()
 
     def test_freight_no_options_raises_value_error(
         self, mock_repository: MagicMock, mock_mercadopago: MagicMock
@@ -117,14 +117,14 @@ class TestPaymentServiceFreightValidation:
             with pytest.raises(MelhorEnvioAPIError) as exc_info:
                 service.process_payment(_payload())
             assert "Frete" in str(exc_info.value) or "Timeout" in str(exc_info.value)
-            mock_repository.get_product_price.assert_not_called()
+            mock_repository.get_product_price_and_stock.assert_not_called()
 
     def test_freight_matches_chosen_service_option(
         self, mock_repository: MagicMock, mock_mercadopago: MagicMock
     ) -> None:
         with patch("src.payment.service.get_quote") as mock_get_quote:
             mock_get_quote.return_value = [OPTION_PAC, OPTION_JADLOG]
-            mock_repository.get_product_price.return_value = {"id": 1, "price": 100.00}
+            mock_repository.get_product_price_and_stock.return_value = {"id": 1, "price": 100.00, "stock": {"Único": 100}, "quantity": 100}
             mock_mp = mock_mercadopago.return_value
             mock_mp.payment.return_value.create.return_value = {
                 "status": 201,

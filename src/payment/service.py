@@ -55,31 +55,36 @@ class PaymentService:
                 "Frete: valor enviado não confere com a cotação do serviço escolhido. Recalcule o frete no checkout."
             )
 
-        # 1. Auditoria de Preços (Com Debug)
+        # 1. Auditoria de Preços e checagem de estoque (Supabase)
         total_calculado = Decimal('0.00')
-        log_detalhado = [] # Vamos guardar o log de cada item para o erro
-        
-        # Verificação rápida: Lista vazia?
+        log_detalhado = []
+
         if not payload.items:
-             raise Exception(f"Erro: O backend recebeu uma lista de itens vazia. Front enviou R$ {payload.transaction_amount}")
+            raise Exception(f"Erro: O backend recebeu uma lista de itens vazia. Front enviou R$ {payload.transaction_amount}")
 
         for item in payload.items:
-            db_product = self.repo.get_product_price(item.id)
-            
+            db_product = self.repo.get_product_price_and_stock(item.id)
             if not db_product:
-                raise Exception(f"Produto ID {item.id} não encontrado no banco.")
-            
-            # Conversão Segura
-            db_price_raw = db_product.get('price', 0)
-            if db_price_raw is None: db_price_raw = 0
-            
+                raise ValueError(f"Produto ID {item.id} não encontrado.")
+
+            # Estoque: disponível no tamanho escolhido ou "Único"
+            size = getattr(item, "size", None) or "Único"
+            stock = db_product.get("stock") or {}
+            available = stock.get(size) if size in stock else stock.get("Único", 0)
+            available = int(available) if available is not None else 0
+            if available < item.quantity:
+                raise ValueError(
+                    f"O produto \"{item.name}\" está fora de estoque ou a quantidade solicitada não está disponível. "
+                    f"Disponível: {available}, solicitado: {item.quantity}."
+                )
+
+            db_price_raw = db_product.get("price", 0)
+            if db_price_raw is None:
+                db_price_raw = 0
             price = Decimal(str(db_price_raw))
             qty = Decimal(str(item.quantity))
-            
             subtotal = price * qty
             total_calculado += subtotal
-            
-            # Adiciona ao log de debug
             log_detalhado.append(f"ID:{item.id} | Qtd:{qty} | PreçoDB:{price} | Sub:{subtotal}")
 
         # Subtotal dos itens (preços do banco) e total esperado = subtotal + frete já validado
@@ -159,7 +164,7 @@ class PaymentService:
         # 5. Baixa Estoque
         self.repo.update_stock(payload.items)
 
-        # 6. Atualiza quantidade dos itens no Firebase (como edição backoffice)
+        # 6. Atualiza quantidade no Firebase (vitrine para outros clientes)
         decrement_products_quantity(payload.items)
 
         # 7. Retorno

@@ -62,7 +62,7 @@ class TestPaymentServiceAudit:
         Esperado: Auditoria passa, fluxo continua (não lança exceção).
         """
         # Arrange: Mock retorna preço do banco que bate com o front
-        mock_repository.get_product_price.return_value = {"id": 1, "price": 50.00}
+        mock_repository.get_product_price_and_stock.return_value = {"id": 1, "price": 50.00, "stock": {"Único": 100}, "quantity": 100}
         
         # Mock Mercado Pago para não falhar (não é o foco deste teste)
         mock_mp_instance = mock_mercadopago.return_value
@@ -82,7 +82,7 @@ class TestPaymentServiceAudit:
         
         # Assert: Não deve lançar exceção e deve chamar create_order
         assert result is not None
-        mock_repository.get_product_price.assert_called_once_with(1)
+        mock_repository.get_product_price_and_stock.assert_called_once_with(1)
         mock_repository.create_order.assert_called_once()
 
     def test_audit_success_with_minor_difference_under_1_real(
@@ -103,7 +103,7 @@ class TestPaymentServiceAudit:
             frete_service="jadlog_package",
             cep="01310100",
         )
-        mock_repository.get_product_price.return_value = {"id": 1, "price": 50.25}
+        mock_repository.get_product_price_and_stock.return_value = {"id": 1, "price": 50.25, "stock": {"Único": 100}, "quantity": 100}
         mock_mp_instance = mock_mercadopago.return_value
         mock_mp_instance.payment.return_value.create.return_value = {
             "status": 201,
@@ -123,7 +123,7 @@ class TestPaymentServiceAudit:
         Esperado: Lança Exception com mensagem de divergência e detalhes dos itens.
         """
         # Arrange: Preço no banco é MUITO maior (R$ 250.00 * 2 = R$ 500.00 subtotal); total esperado = 500 + 25.90
-        mock_repository.get_product_price.return_value = {"id": 1, "price": 250.00}
+        mock_repository.get_product_price_and_stock.return_value = {"id": 1, "price": 250.00, "stock": {"Único": 100}, "quantity": 100}
         payload_divergente = PaymentInput(
             transaction_amount=125.90,  # front envia subtotal+frete (mas subtotal real do back é 500)
             payment_method_id="pix",
@@ -154,16 +154,40 @@ class TestPaymentServiceAudit:
         Esperado: Lança Exception informando que produto não foi encontrado.
         """
         # Arrange: Repository retorna None (produto não existe)
-        mock_repository.get_product_price.return_value = None
+        mock_repository.get_product_price_and_stock.return_value = None
         
         # Act & Assert
         service = PaymentService()
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(ValueError) as exc_info:
             service.process_payment(valid_payment_payload)
-        
-        # Verifica mensagem de erro
-        error_msg = str(exc_info.value)
-        assert "Produto ID 1 não encontrado" in error_msg
+        assert "não encontrado" in str(exc_info.value)
+
+    def test_audit_insufficient_stock_raises_friendly_error(
+        self, mock_repository: MagicMock, mock_mercadopago: MagicMock, mock_get_quote
+    ) -> None:
+        """Estoque insuficiente deve retornar mensagem amigável (sem cobrar no MP)."""
+        mock_repository.get_product_price_and_stock.return_value = {
+            "id": 1, "price": 50.00, "stock": {"Único": 2}, "quantity": 2
+        }
+        payload = PaymentInput(
+            transaction_amount=125.90,
+            payment_method_id="pix",
+            installments=1,
+            payer=Payer(email="t@t.com", identification=Identification(number="12345678900")),
+            user_id="user-123",
+            items=[Item(id=1, name="Chapéu", price=50.00, quantity=7)],
+            frete=25.90,
+            frete_service="jadlog_package",
+            cep="01310100",
+        )
+        service = PaymentService()
+        with pytest.raises(ValueError) as exc_info:
+            service.process_payment(payload)
+        msg = str(exc_info.value)
+        assert "Chapéu" in msg
+        assert "fora de estoque" in msg or "não está disponível" in msg
+        assert "7" in msg and "2" in msg
+        mock_mercadopago.return_value.payment.return_value.create.assert_not_called()
 
     def test_audit_empty_items_list(
         self, mock_repository: MagicMock, mock_mercadopago: MagicMock, mock_get_quote
@@ -199,7 +223,7 @@ class TestPaymentServiceAudit:
         assert "25.9" in error_msg  # valor que o front enviou
         
         # Repository NÃO deve ser chamado (falha antes)
-        mock_repository.get_product_price.assert_not_called()
+        mock_repository.get_product_price_and_stock.assert_not_called()
 
     def test_audit_multiple_items_price_calculation(
         self, mock_repository: MagicMock, mock_mercadopago: MagicMock, mock_get_quote
@@ -232,12 +256,12 @@ class TestPaymentServiceAudit:
         
         def get_price_side_effect(product_id):
             prices = {
-                1: {"id": 1, "price": 30.00},
-                2: {"id": 2, "price": 20.00}
+                1: {"id": 1, "price": 30.00, "stock": {"Único": 100}, "quantity": 100},
+                2: {"id": 2, "price": 20.00, "stock": {"Único": 100}, "quantity": 100},
             }
             return prices.get(product_id)
         
-        mock_repository.get_product_price.side_effect = get_price_side_effect
+        mock_repository.get_product_price_and_stock.side_effect = get_price_side_effect
         
         mock_mp_instance = mock_mercadopago.return_value
         mock_mp_instance.payment.return_value.create.return_value = {
@@ -256,7 +280,7 @@ class TestPaymentServiceAudit:
         
         # Assert: Não deve lançar exceção, valores batem
         assert result is not None
-        assert mock_repository.get_product_price.call_count == 2
+        assert mock_repository.get_product_price_and_stock.call_count == 2
         mock_repository.create_order.assert_called_once()
 
     def test_audit_handles_none_price_from_database(
@@ -267,7 +291,7 @@ class TestPaymentServiceAudit:
         Esperado: Código trata como 0.00 (conversão segura linhas 27-28 do service).
         """
         # Arrange: Produto existe mas price é None
-        mock_repository.get_product_price.return_value = {"id": 1, "price": None}
+        mock_repository.get_product_price_and_stock.return_value = {"id": 1, "price": None, "stock": {"Único": 100}, "quantity": 100}
         
         # Act & Assert: Subtotal 0 (price None), total_esperado = 0 + 25.90 = 25.90; front envia 125.90
         service = PaymentService()

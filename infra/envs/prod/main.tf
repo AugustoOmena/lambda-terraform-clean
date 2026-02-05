@@ -110,6 +110,10 @@ module "payment_lambda" {
     MELHOR_ENVIO_TOKEN      = var.melhor_envio_token
     MELHOR_ENVIO_API_URL    = var.melhor_envio_api_url
     CEP_ORIGEM              = var.cep_origem
+    FIREBASE_PROJECT_ID     = var.firebase_project_id
+    FIREBASE_CLIENT_EMAIL   = var.firebase_client_email
+    FIREBASE_PRIVATE_KEY    = var.firebase_private_key
+    FIREBASE_DATABASE_URL   = var.firebase_database_url
     POWERTOOLS_SERVICE_NAME = "payment"
   }
 
