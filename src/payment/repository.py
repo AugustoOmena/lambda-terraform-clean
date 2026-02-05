@@ -9,14 +9,43 @@ class PaymentRepository:
         return res.data[0] if res.data else None
 
     def get_product_price_and_stock(self, product_id: int):
-        """Retorna id, price, stock e quantity para auditoria de preço e checagem de estoque."""
+        """Retorna id, price, stock e quantity para auditoria (fallback legado)."""
         res = self.db.table("products").select("id, price, stock, quantity").eq("id", product_id).execute()
         return res.data[0] if res.data else None
 
+    def get_variant_stock(self, product_id: int, color: str, size: str):
+        """Retorna a variante (product_id + color + size) para checagem de estoque."""
+        color_val = (color or "").strip() or "Único"
+        size_val = (size or "").strip() or "Único"
+        res = (
+            self.db.table("product_variants")
+            .select("id, product_id, color, size, stock_quantity")
+            .eq("product_id", product_id)
+            .eq("color", color_val)
+            .eq("size", size_val)
+            .execute()
+        )
+        return res.data[0] if res.data else None
+
     def get_product_full(self, product_id: int):
-        """Retorna o produto completo (todas as colunas) para sincronizar com Firebase."""
+        """Retorna o produto completo para sincronizar com Firebase (formato legado)."""
         res = self.db.table("products").select("*").eq("id", product_id).execute()
         return res.data[0] if res.data else None
+
+    def get_product_with_variants(self, product_id: int):
+        """Retorna produto + variantes no formato consolidado para Firebase."""
+        prod = self.get_product_full(product_id)
+        if not prod:
+            return None
+        res = self.db.table("product_variants").select("color, size, stock_quantity").eq("product_id", product_id).execute()
+        variants = [{"color": r["color"], "size": r["size"], "stock": int(r.get("stock_quantity", 0))} for r in (res.data or [])]
+        return {
+            "id": str(product_id),
+            "name": prod.get("name") or "",
+            "material": prod.get("material") or "",
+            "print": prod.get("pattern") or "",
+            "variants": variants,
+        }
 
     def create_order(self, payload, mp_response, total_amount):
         # 1. Cria o Pedido (Order)
@@ -36,21 +65,22 @@ class PaymentRepository:
             
         order_id = res_order.data[0]["id"]
 
-        # 2. Prepara os Itens
         items_data = []
         for item in payload.items:
-            items_data.append({
+            row = {
                 "order_id": order_id,
                 "product_id": item.id,
                 "quantity": item.quantity,
                 "product_name": item.name,
                 "image_url": item.image,
-                
-                # --- O PULO DO GATO PARA CORRIGIR O ERRO ---
-                # Enviamos com os dois nomes possíveis para satisfazer tabelas antigas e novas
-                "price": item.price,            # <--- Satisfaz a coluna 'price' (Legado)
-                "price_at_purchase": item.price # <--- Satisfaz a coluna 'price_at_purchase' (Nova)
-            })
+                "price": item.price,
+                "price_at_purchase": item.price,
+            }
+            if getattr(item, "color", None):
+                row["color"] = item.color
+            if getattr(item, "size", None):
+                row["size"] = item.size
+            items_data.append(row)
         
         # 3. Insere os Itens
         if items_data:
@@ -61,46 +91,33 @@ class PaymentRepository:
 
     def update_stock(self, order_items):
         """
-        Atualiza o estoque baseado nos itens vendidos.
-        Desconta do JSON 'stock' e atualiza o total 'quantity'.
+        Abate estoque por variante (product_id + color + size) em product_variants.
+        Se não houver variante, fallback para products.stock (legado).
         """
         for item in order_items:
             try:
                 prod_id = item.id
                 sold_qty = item.quantity
-                
-                # O front deve mandar o tamanho escolhido. 
-                # Se não mandou, assumimos "Único" (para produtos sem grade)
-                # OBS: Precisamos garantir que 'size' venha no payload do item no Service
-                size_sold = getattr(item, 'size', 'Único') 
-                if not size_sold: 
-                    size_sold = 'Único'
+                color_sold = (getattr(item, "color", None) or "").strip() or "Único"
+                size_sold = (getattr(item, "size", None) or "").strip() or "Único"
 
-                # 1. Busca o produto atual
-                product = self.db.table("products").select("stock, quantity").eq("id", prod_id).execute()
-                if not product.data:
-                    continue
-                
-                current_stock = product.data[0].get("stock") or {}
-                
-                # 2. Calcula novo estoque
-                # Se o tamanho existe no JSON, subtrai.
-                if size_sold in current_stock:
-                    current_stock[size_sold] = max(0, int(current_stock[size_sold]) - sold_qty)
+                variant = self.get_variant_stock(prod_id, color_sold, size_sold)
+                if variant:
+                    new_qty = max(0, int(variant.get("stock_quantity", 0)) - sold_qty)
+                    self.db.table("product_variants").update({"stock_quantity": new_qty}).eq("id", variant["id"]).execute()
+                    total = self.db.table("product_variants").select("stock_quantity").eq("product_id", prod_id).execute()
+                    new_product_qty = sum(int(r.get("stock_quantity", 0)) for r in (total.data or []))
+                    self.db.table("products").update({"quantity": new_product_qty}).eq("id", prod_id).execute()
                 else:
-                    # Se não achou o tamanho exato, tenta descontar de "Único" ou ignora
-                    if "Único" in current_stock:
+                    product = self.db.table("products").select("stock, quantity").eq("id", prod_id).execute()
+                    if not product.data:
+                        continue
+                    current_stock = product.data[0].get("stock") or {}
+                    if size_sold in current_stock:
+                        current_stock[size_sold] = max(0, int(current_stock[size_sold]) - sold_qty)
+                    elif "Único" in current_stock:
                         current_stock["Único"] = max(0, int(current_stock["Único"]) - sold_qty)
-                
-                # Recalcula total para a vitrine
-                new_total = sum(int(v) for v in current_stock.values())
-
-                # 3. Salva
-                self.db.table("products").update({
-                    "stock": current_stock,
-                    "quantity": new_total
-                }).eq("id", prod_id).execute()
-
+                    new_total = sum(int(v) for v in current_stock.values())
+                    self.db.table("products").update({"stock": current_stock, "quantity": new_total}).eq("id", prod_id).execute()
             except Exception as e:
                 print(f"Erro ao dar baixa no estoque do produto {item.id}: {e}")
-                # Não paramos o fluxo de venda por erro de estoque (melhor vender e resolver depois)

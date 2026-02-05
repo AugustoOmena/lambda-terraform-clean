@@ -17,6 +17,7 @@ ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vouchers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_refunds ENABLE ROW LEVEL SECURITY;
+ALTER TABLE product_variants ENABLE ROW LEVEL SECURITY;
 
 -- 3. PROFILES: Usuário vê/edita o seu; Backend total.
 CREATE POLICY "Users can view own profile" ON profiles FOR SELECT USING (auth.uid() = id);
@@ -26,6 +27,10 @@ CREATE POLICY "Service Role Full Access Profiles" ON profiles FOR ALL USING (aut
 -- 4. PRODUCTS: Público lê; Backend gerencia.
 CREATE POLICY "Public Read Access" ON products FOR SELECT USING (true);
 CREATE POLICY "Service Role Full Access Products" ON products FOR ALL USING (auth.role() = 'service_role');
+
+-- 4b. PRODUCT_VARIANTS: mesmo regime que products (público lê; backend gerencia).
+CREATE POLICY "Public Read Access Product Variants" ON product_variants FOR SELECT USING (true);
+CREATE POLICY "Service Role Full Access Product Variants" ON product_variants FOR ALL USING (auth.role() = 'service_role');
 
 -- 5. ORDERS: Usuário vê/cria o seu; Backend total.
 CREATE POLICY "Users can view own orders" ON orders FOR SELECT USING (auth.uid() = user_id);

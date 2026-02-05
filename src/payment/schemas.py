@@ -33,7 +33,8 @@ class Item(BaseModel):
     name: str
     price: float
     quantity: int
-    image: Optional[str] = None 
+    image: Optional[str] = None
+    color: Optional[str] = None
     size: Optional[str] = "Único"
 
 def _normalize_cep(v: str) -> str:

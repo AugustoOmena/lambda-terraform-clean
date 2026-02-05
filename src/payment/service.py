@@ -2,7 +2,7 @@ import mercadopago
 import os
 from decimal import Decimal, ROUND_HALF_UP
 
-from shared.firebase import set_product_in_firebase
+from shared.firebase import set_product_consolidated
 from shared.melhor_envio import MelhorEnvioAPIError, get_quote
 
 from repository import PaymentRepository
@@ -67,11 +67,15 @@ class PaymentService:
             if not db_product:
                 raise ValueError(f"Produto ID {item.id} não encontrado.")
 
-            # Estoque: disponível no tamanho escolhido ou "Único"
-            size = getattr(item, "size", None) or "Único"
-            stock = db_product.get("stock") or {}
-            available = stock.get(size) if size in stock else stock.get("Único", 0)
-            available = int(available) if available is not None else 0
+            color = (getattr(item, "color", None) or "").strip() or "Único"
+            size = (getattr(item, "size", None) or "").strip() or "Único"
+            variant = self.repo.get_variant_stock(item.id, color, size)
+            if variant:
+                available = int(variant.get("stock_quantity", 0))
+            else:
+                stock = db_product.get("stock") or {}
+                available = stock.get(size) if size in stock else stock.get("Único", 0)
+                available = int(available) if available is not None else 0
             if available < item.quantity:
                 raise ValueError(
                     f"O produto \"{item.name}\" está fora de estoque ou a quantidade solicitada não está disponível. "
@@ -164,11 +168,11 @@ class PaymentService:
         # 5. Baixa Estoque
         self.repo.update_stock(payload.items)
 
-        # 6. Sincroniza produtos vendidos no Firebase (estado completo do Supabase em tempo real)
+        # 6. Sincroniza produtos vendidos no Firebase (formato consolidado com variantes)
         for product_id in {item.id for item in payload.items}:
-            product = self.repo.get_product_full(product_id)
-            if product:
-                set_product_in_firebase(product)
+            payload_fb = self.repo.get_product_with_variants(product_id)
+            if payload_fb:
+                set_product_consolidated(payload_fb)
 
         # 7. Retorno
         result = {

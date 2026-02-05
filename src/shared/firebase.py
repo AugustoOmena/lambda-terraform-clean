@@ -102,6 +102,23 @@ def set_product_in_firebase(product_dict: Dict[str, Any]) -> None:
         logger.error(f"Firebase set product {product_id} failed: {e}")
 
 
+def set_product_consolidated(payload: Dict[str, Any]) -> None:
+    """
+    Writes consolidated product JSON to Firebase at /products/{id}.
+    Payload shape: {"id", "name", "material", "print", "variants": [{"color", "size", "stock"}, ...]}.
+    """
+    product_id = payload.get("id")
+    if product_id is None:
+        logger.warning("Product missing ID, skipping Firebase consolidated set")
+        return
+    try:
+        ref = get_firebase_db().child("products").child(str(product_id))
+        ref.set(payload)
+        logger.info(f"Firebase: product {product_id} set (consolidated)")
+    except Exception as e:
+        logger.error(f"Firebase set product {product_id} consolidated failed: {e}")
+
+
 def get_product_by_id(product_id: int):
     """
     Lê apenas o nó do produto no Firebase (products/{id}). Não carrega a árvore inteira.

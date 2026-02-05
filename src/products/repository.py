@@ -60,19 +60,40 @@ class ProductRepository:
         res = self.db.table("products").select("*").eq("id", product_id).execute()
         return res.data[0] if res.data else None
 
+    def get_variants_by_product_id(self, product_id: int):
+        res = self.db.table("product_variants").select("*").eq("product_id", product_id).execute()
+        return res.data or []
+
     def create(self, data: dict):
+        data = {k: v for k, v in data.items() if k != "variants"}
         if "stock" not in data or not data["stock"]:
-             qty = data.get("quantity", 0)
-             data["stock"] = {"Único": qty}
+            data["stock"] = {"Único": data.get("quantity", 0)}
         res = self.db.table("products").insert(data).execute()
         return res.data[0] if res.data else None
 
+    def insert_variants(self, product_id: int, variants: list) -> None:
+        if not variants:
+            return
+        rows = []
+        for v in variants:
+            sku = v.get("sku") or f"{product_id}-{v['color']}-{v['size']}"
+            rows.append({
+                "product_id": product_id,
+                "color": v["color"],
+                "size": v["size"],
+                "stock_quantity": v.get("stock_quantity", 0),
+                "sku": sku,
+            })
+        self.db.table("product_variants").insert(rows).execute()
+
+    def delete_variants_by_product_id(self, product_id: int) -> None:
+        self.db.table("product_variants").delete().eq("product_id", product_id).execute()
+
     def update(self, product_id: int, data: dict):
+        data = {k: v for k, v in data.items() if k != "variants"}
         if "stock" in data and data["stock"]:
-            # Recalcula a quantidade total baseado na soma do JSON
-            total_qty = sum(int(v) for v in data["stock"].values())
+            total_qty = sum(int(x) for x in data["stock"].values())
             data["quantity"] = total_qty
-        
         res = self.db.table("products").update(data).eq("id", product_id).execute()
         return res.data[0] if res.data else None
 
