@@ -13,6 +13,11 @@ class PaymentRepository:
         res = self.db.table("products").select("id, price, stock, quantity").eq("id", product_id).execute()
         return res.data[0] if res.data else None
 
+    def get_product_full(self, product_id: int):
+        """Retorna o produto completo (todas as colunas) para sincronizar com Firebase."""
+        res = self.db.table("products").select("*").eq("id", product_id).execute()
+        return res.data[0] if res.data else None
+
     def create_order(self, payload, mp_response, total_amount):
         # 1. Cria o Pedido (Order)
         order_data = {

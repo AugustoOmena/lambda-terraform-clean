@@ -24,8 +24,16 @@ CREATE TABLE IF NOT EXISTS products (
     quantity INTEGER DEFAULT 0,
     stock JSONB DEFAULT '{}'::jsonb,
     is_featured BOOLEAN DEFAULT false,
+    color VARCHAR(100),
+    material VARCHAR(100),
+    pattern VARCHAR(100),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Migração: adiciona colunas em instâncias já existentes
+ALTER TABLE products ADD COLUMN IF NOT EXISTS color VARCHAR(100);
+ALTER TABLE products ADD COLUMN IF NOT EXISTS material VARCHAR(100);
+ALTER TABLE products ADD COLUMN IF NOT EXISTS pattern VARCHAR(100);
 
 -- 3. Orders
 CREATE TABLE IF NOT EXISTS orders (

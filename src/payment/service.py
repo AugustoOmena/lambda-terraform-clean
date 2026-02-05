@@ -2,7 +2,7 @@ import mercadopago
 import os
 from decimal import Decimal, ROUND_HALF_UP
 
-from shared.firebase import decrement_products_quantity
+from shared.firebase import set_product_in_firebase
 from shared.melhor_envio import MelhorEnvioAPIError, get_quote
 
 from repository import PaymentRepository
@@ -164,8 +164,11 @@ class PaymentService:
         # 5. Baixa Estoque
         self.repo.update_stock(payload.items)
 
-        # 6. Atualiza quantidade no Firebase (vitrine para outros clientes)
-        decrement_products_quantity(payload.items)
+        # 6. Sincroniza produtos vendidos no Firebase (estado completo do Supabase em tempo real)
+        for product_id in {item.id for item in payload.items}:
+            product = self.repo.get_product_full(product_id)
+            if product:
+                set_product_in_firebase(product)
 
         # 7. Retorno
         result = {

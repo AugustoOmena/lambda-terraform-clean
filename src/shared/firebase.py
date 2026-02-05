@@ -1,5 +1,7 @@
 import os
-from typing import Any, List
+from datetime import datetime
+from decimal import Decimal
+from typing import Any, Dict, List
 
 import firebase_admin
 from firebase_admin import credentials, db
@@ -58,6 +60,46 @@ def get_firebase_db():
     
     _firebase_db = db.reference()
     return _firebase_db
+
+
+def _serialize_product_for_firebase(product_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Converts product dict from Supabase to Firebase-compatible JSON.
+    Removes None, converts Decimal to float and datetime to ISO string.
+    """
+    out = {}
+    for key, value in product_data.items():
+        if value is None:
+            continue
+        if isinstance(value, Decimal):
+            out[key] = float(value)
+        elif isinstance(value, datetime):
+            out[key] = value.isoformat()
+        elif isinstance(value, dict):
+            out[key] = value
+        elif isinstance(value, list):
+            out[key] = value
+        else:
+            out[key] = value
+    return out
+
+
+def set_product_in_firebase(product_dict: Dict[str, Any]) -> None:
+    """
+    Writes full product JSON to Firebase Realtime Database (source of truth from Supabase).
+    Use after create, update, or stock change (e.g. sale) so Firebase stays in sync.
+    """
+    product_id = product_dict.get("id")
+    if product_id is None:
+        logger.warning("Product missing ID, skipping Firebase set")
+        return
+    try:
+        data = _serialize_product_for_firebase(product_dict)
+        ref = get_firebase_db().child("products").child(str(product_id))
+        ref.set(data)
+        logger.info(f"Firebase: product {product_id} set (full sync)")
+    except Exception as e:
+        logger.error(f"Firebase set product {product_id} failed: {e}")
 
 
 def get_product_by_id(product_id: int):

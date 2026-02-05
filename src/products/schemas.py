@@ -36,6 +36,11 @@ class ProductInput(BaseModel):
     # is_featured BOOLEAN DEFAULT false
     is_featured: Optional[bool] = None
     
+    # color, material, pattern (VARCHAR 100, opcionais)
+    color: Optional[str] = None
+    material: Optional[str] = None
+    pattern: Optional[str] = None
+    
     # Serializa Decimal como float no JSON para compatibilidade com Frontend
     @field_serializer('price', when_used='json')
     def serialize_price(self, value: Decimal) -> float:
@@ -58,6 +63,9 @@ class ProductUpdate(BaseModel):
     images: Optional[List[str]] = None
     stock: Optional[Dict[str, int]] = None
     is_featured: Optional[bool] = None
+    color: Optional[str] = None
+    material: Optional[str] = None
+    pattern: Optional[str] = None
     
     # Serializa Decimal como float no JSON para compatibilidade com Frontend
     @field_serializer('price', when_used='json')
