@@ -48,6 +48,7 @@ class PaymentRepository:
             "id": str(product_id),
             "name": prod.get("name") or "",
             "description": prod.get("description") or "",
+            "category": prod.get("category") or "",
             "material": prod.get("material") or "",
             "print": prod.get("pattern") or "",
             "price": price,

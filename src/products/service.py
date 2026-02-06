@@ -120,6 +120,7 @@ class ProductService:
                 "id": str(product_id),
                 "name": product.get("name") or "",
                 "description": product.get("description") or "",
+                "category": product.get("category") or "",
                 "material": product.get("material") or "",
                 "print": product.get("pattern") or "",
                 "price": price,
