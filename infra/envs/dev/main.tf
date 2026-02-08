@@ -6,8 +6,8 @@ terraform {
   required_version = ">= 1.0.0"
 
   backend "s3" {
-    bucket = "augusto-omena-tfstate"
-    key    = "backend/terraform-dev.tfstate" # DEV: state isolado do prod
+    bucket  = "augusto-omena-tfstate-dev"    # Bucket na conta AWS DEV (criar manualmente se não existir)
+    key    = "backend/terraform.tfstate"
     region = "us-east-1"
     
     # Opcional (Recomendado): Encripta o arquivo em repouso
