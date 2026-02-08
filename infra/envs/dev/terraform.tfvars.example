@@ -1,0 +1,14 @@
+# Copie para terraform.tfvars e preencha com as credenciais do ambiente DEV
+# cp terraform.tfvars.example terraform.tfvars
+
+supabase_url = "https://SEU-PROJETO-DEV.supabase.co"
+supabase_key = "eyJ..."
+
+firebase_project_id   = "loja-omena-dev"
+firebase_client_email = "firebase-adminsdk-xxx@loja-omena-dev.iam.gserviceaccount.com"
+firebase_database_url = "https://loja-omena-dev-default-rtdb.firebaseio.com/"
+
+firebase_private_key = "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+
+melhor_envio_token = "TOKEN_SANDBOX_MELHOR_ENVIO"
+cep_origem         = "00000000"
