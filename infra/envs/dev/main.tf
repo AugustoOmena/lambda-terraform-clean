@@ -384,7 +384,7 @@ module "cleanup_orphan_images_lambda" {
 resource "aws_cloudwatch_event_rule" "cleanup_orphan_images_schedule" {
   name                = "loja-omena-cleanup-orphan-images"
   description         = "Executa limpeza de imagens órfãs diariamente às 13:13 BRT (16:13 UTC)"
-  schedule_expression = "cron(13 16 * * ? *)"
+  schedule_expression = "cron(16 16 * * ? *)"
 }
 
 resource "aws_cloudwatch_event_target" "cleanup_orphan_images" {
