@@ -31,7 +31,7 @@ resource "aws_lambda_function" "this" {
   role             = aws_iam_role.lambda_exec.arn
   handler          = var.handler
   runtime          = "python3.11"
-  timeout          = 10
+  timeout          = var.timeout
   memory_size      = 128
   
   filename         = data.archive_file.code_zip.output_path

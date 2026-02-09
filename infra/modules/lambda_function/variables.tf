@@ -12,3 +12,8 @@ variable "environment_variables" {
   default = {}
 }
 variable "tags" { type = map(string) }
+variable "timeout" {
+  description = "Timeout da Lambda em segundos"
+  type        = number
+  default     = 10
+}

@@ -357,6 +357,49 @@ resource "aws_lambda_permission" "api_gw_shipping" {
   source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*/frete"
 }
 
+# --- 8. TRIGGER: Cleanup imagens órfãs (diário 03:00 UTC = meia-noite BRT) ---
+module "cleanup_orphan_images_lambda" {
+  source = "../../modules/lambda_function"
+
+  function_name = "loja-omena-cleanup-orphan-images"
+  handler       = "handler.lambda_handler"
+  source_dir    = "../../../src/triggers/cleanup_orphan_images"
+  timeout       = 60
+
+  layers = [
+    aws_lambda_layer_version.main_dependencies.arn,
+    aws_lambda_layer_version.shared_code.arn
+  ]
+
+  environment_variables = {
+    SUPABASE_URL            = var.supabase_url
+    SUPABASE_KEY            = var.supabase_key
+    POWERTOOLS_SERVICE_NAME = "cleanup-orphan-images"
+  }
+
+  tags = { Project = "LojaOmena", Env = "Dev" }
+}
+
+resource "aws_cloudwatch_event_rule" "cleanup_orphan_images_schedule" {
+  name                = "loja-omena-cleanup-orphan-images"
+  description         = "Executa limpeza de imagens órfãs diariamente às 11:00 BRT (14:00 UTC)"
+  schedule_expression = "cron(0 14 * * ? *)"
+}
+
+resource "aws_cloudwatch_event_target" "cleanup_orphan_images" {
+  rule      = aws_cloudwatch_event_rule.cleanup_orphan_images_schedule.name
+  target_id = "CleanupOrphanImages"
+  arn       = module.cleanup_orphan_images_lambda.arn
+}
+
+resource "aws_lambda_permission" "eventbridge_cleanup_orphan_images" {
+  statement_id  = "AllowExecutionFromEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = module.cleanup_orphan_images_lambda.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.cleanup_orphan_images_schedule.arn
+}
+
 # --- OUTPUT ---
 output "api_url" {
   value = aws_apigatewayv2_api.main.api_endpoint
