@@ -57,3 +57,19 @@ CREATE POLICY "Users can create own order refund requests" ON order_refunds FOR 
     order_id IN (SELECT id FROM orders WHERE user_id = auth.uid())
 );
 CREATE POLICY "Service Role Full Access Order Refunds" ON order_refunds FOR ALL USING (auth.role() = 'service_role');
+
+-- STORAGE product-images: leitura pública (imagens de catálogo); upload via authenticated/service_role
+CREATE POLICY "Public read product images"
+ON storage.objects FOR SELECT
+TO public
+USING (bucket_id = 'product-images');
+
+CREATE POLICY "Allow authenticated uploads"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (bucket_id = 'product-images');
+
+CREATE POLICY "Service role full access product images"
+ON storage.objects FOR ALL
+TO service_role
+USING (bucket_id = 'product-images');
