@@ -361,6 +361,7 @@ module "cleanup_orphan_images_lambda" {
   handler       = "handler.lambda_handler"
   source_dir    = "../../../src/triggers/cleanup_orphan_images"
   timeout       = 60
+  memory_size   = 192
 
   layers = [
     aws_lambda_layer_version.main_dependencies.arn,

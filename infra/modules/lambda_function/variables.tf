@@ -17,3 +17,8 @@ variable "timeout" {
   type        = number
   default     = 10
 }
+variable "memory_size" {
+  description = "Memória da Lambda em MB"
+  type        = number
+  default     = 128
+}

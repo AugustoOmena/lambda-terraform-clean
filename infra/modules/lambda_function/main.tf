@@ -32,7 +32,7 @@ resource "aws_lambda_function" "this" {
   handler          = var.handler
   runtime          = "python3.11"
   timeout          = var.timeout
-  memory_size      = 128
+  memory_size      = var.memory_size
   
   filename         = data.archive_file.code_zip.output_path
   source_code_hash = data.archive_file.code_zip.output_base64sha256
