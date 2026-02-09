@@ -2,7 +2,10 @@
 
 from typing import List, Set
 
+from aws_lambda_powertools import Logger
 from shared.database import get_supabase_client
+
+logger = Logger(service="cleanup-orphan-images")
 
 
 class CleanupOrphanImagesRepository:
@@ -52,8 +55,15 @@ class CleanupOrphanImagesRepository:
         _list_recursive("")
         return paths
 
-    def delete_storage_files(self, paths: List[str]) -> None:
-        """Remove arquivos do Storage pelo path."""
+    def delete_storage_files(self, paths: List[str]) -> int:
+        """Remove arquivos do Storage pelo path. Retorna quantidade deletada com sucesso."""
         if not paths:
-            return
-        self.db.storage.from_(self.BUCKET).remove(paths)
+            return 0
+        deleted = 0
+        for path in paths:
+            try:
+                self.db.storage.from_(self.BUCKET).remove([path])
+                deleted += 1
+            except Exception as e:
+                logger.warning("Falha ao deletar", extra={"path": path, "error": str(e)})
+        return deleted

@@ -2,7 +2,10 @@
 
 from typing import Dict, Any
 
+from aws_lambda_powertools import Logger
 from repository import CleanupOrphanImagesRepository
+
+logger = Logger(service="cleanup-orphan-images")
 
 
 class CleanupOrphanImagesService:
@@ -19,5 +22,6 @@ class CleanupOrphanImagesService:
         orphans = [p for p in storage_paths if p.split("/")[-1] not in referenced_basenames]
         if not orphans:
             return {"deleted_count": 0, "orphans_found": 0}
-        self.repo.delete_storage_files(orphans)
-        return {"deleted_count": len(orphans), "orphans_found": len(orphans)}
+        logger.info("Orphans a deletar", extra={"paths": orphans})
+        deleted = self.repo.delete_storage_files(orphans)
+        return {"deleted_count": deleted, "orphans_found": len(orphans)}
