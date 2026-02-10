@@ -11,7 +11,7 @@ from repository import PaymentRepository
 DEFAULT_WIDTH_CM = 16
 DEFAULT_HEIGHT_CM = 12
 DEFAULT_LENGTH_CM = 20
-DEFAULT_WEIGHT_KG = 0.3
+DEFAULT_WEIGHT_KG = Decimal("0.3")
 FREIGHT_TOLERANCE = Decimal("0.01")
 
 
