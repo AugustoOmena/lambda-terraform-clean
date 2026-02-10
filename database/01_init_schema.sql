@@ -116,3 +116,8 @@ CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);
 CREATE INDEX IF NOT EXISTS idx_vouchers_code ON vouchers(code);
 CREATE INDEX IF NOT EXISTS idx_vouchers_valid_until ON vouchers(valid_until);
 CREATE INDEX IF NOT EXISTS idx_order_refunds_order_id ON order_refunds(order_id);
+
+-- Migração: dados de pagamento PIX/boleto para o usuário copiar (quando pendente)
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_code TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_url TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_expiration TIMESTAMP WITH TIME ZONE;

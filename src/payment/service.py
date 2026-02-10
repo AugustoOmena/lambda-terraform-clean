@@ -162,19 +162,36 @@ class PaymentService:
                  error_msg = f"{error_msg} - {response['cause'][0].get('description')}"
              raise Exception(error_msg)
 
-        # 4. Salva Pedido
-        order = self.repo.create_order(payload, response, final_transaction_amount)
+        # 4. Extrai dados PIX/boleto para o usuário copiar depois
+        payment_code = None
+        payment_url = None
+        payment_expiration = response.get("date_of_expiration")
+
+        if payload.payment_method_id == "pix":
+            poi = response.get("point_of_interaction", {}).get("transaction_data", {})
+            payment_code = poi.get("qr_code")
+        elif "bol" in payload.payment_method_id or payload.payment_method_id == "pec":
+            trans = response.get("transaction_details", {})
+            payment_url = trans.get("external_resource_url")
+
+        # 5. Salva Pedido
+        order = self.repo.create_order(
+            payload, response, final_transaction_amount,
+            payment_code=payment_code,
+            payment_url=payment_url,
+            payment_expiration=payment_expiration,
+        )
         
-        # 5. Baixa Estoque
+        # 6. Baixa Estoque
         self.repo.update_stock(payload.items)
 
-        # 6. Sincroniza produtos vendidos no Firebase (formato consolidado com variantes)
+        # 7. Sincroniza produtos vendidos no Firebase (formato consolidado com variantes)
         for product_id in {item.id for item in payload.items}:
             payload_fb = self.repo.get_product_with_variants(product_id)
             if payload_fb:
                 set_product_consolidated(payload_fb)
 
-        # 7. Retorno
+        # 8. Retorno
         result = {
             "id": response["id"],
             "status": response["status"],

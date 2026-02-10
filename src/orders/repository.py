@@ -32,12 +32,12 @@ class OrderRepository:
         page: int = 1,
         limit: int = 20,
     ) -> dict[str, Any]:
-        """List orders by user with fields for API contract (id, user_id, status, total_amount, created_at, payment_id, payer)."""
+        """List orders by user with fields for API contract."""
         start = (page - 1) * limit
         end = start + limit - 1
         res = (
             self.db.table("orders")
-            .select("id, user_id, status, total_amount, created_at, payment_method, payment_id, payer", count="exact")
+            .select("id, user_id, status, total_amount, created_at, payment_method, payment_id, payer, payment_code, payment_url, payment_expiration", count="exact")
             .eq("user_id", user_id)
             .order("created_at", desc=True)
             .range(start, end)
@@ -51,7 +51,7 @@ class OrderRepository:
         end = start + limit - 1
         res = (
             self.db.table("orders")
-            .select("id, user_id, status, total_amount, created_at, payment_method, payment_id, payer", count="exact")
+            .select("id, user_id, status, total_amount, created_at, payment_method, payment_id, payer, payment_code, payment_url, payment_expiration", count="exact")
             .order("created_at", desc=True)
             .range(start, end)
             .execute()
