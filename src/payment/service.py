@@ -2,10 +2,13 @@ import mercadopago
 import os
 from decimal import Decimal, ROUND_HALF_UP
 
+from aws_lambda_powertools import Logger
 from shared.firebase import set_product_consolidated
 from shared.melhor_envio import MelhorEnvioAPIError, get_quote
 
 from repository import PaymentRepository
+
+logger = Logger(service="payment")
 
 # Pacote único padrão para cotação (alinhado ao frontend até haver dimensões por produto).
 DEFAULT_WIDTH_CM = 16
@@ -50,7 +53,18 @@ class PaymentService:
             )
         preco_opcao = Decimal(str(opcao_escolhida["preco"]))
         frete_enviado = Decimal(str(payload.frete)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        if abs(frete_enviado - preco_opcao) > FREIGHT_TOLERANCE:
+        diff = abs(frete_enviado - preco_opcao)
+        if diff > FREIGHT_TOLERANCE:
+            logger.warning(
+                "Frete: valor não confere",
+                extra={
+                    "frete_enviado": float(frete_enviado),
+                    "preco_opcao": float(preco_opcao),
+                    "diff": float(diff),
+                    "frete_service": frete_service,
+                    "opcao_escolhida": opcao_escolhida,
+                },
+            )
             raise ValueError(
                 "Frete: valor enviado não confere com a cotação do serviço escolhido. Recalcule o frete no checkout."
             )
