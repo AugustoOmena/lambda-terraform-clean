@@ -66,6 +66,7 @@ class PaymentRepository:
         payment_url: str = None,
         payment_expiration: str = None,
     ):
+        payer_dict = payload.payer.model_dump(mode="json") if payload.payer else {}
         order_data = {
             "user_id": payload.user_id,
             "total_amount": total_amount,
@@ -73,6 +74,7 @@ class PaymentRepository:
             "mp_payment_id": str(mp_response.get("id")),
             "payment_method": payload.payment_method_id,
             "installments": payload.installments,
+            "payer": payer_dict,
         }
         if payment_code:
             order_data["payment_code"] = payment_code
