@@ -136,12 +136,31 @@ class TestPaymentServiceFreightValidation:
             service.process_payment(_payload(frete=31.00, frete_service="jadlog_another"))
             mock_repository.create_order.assert_called_once()
 
-    def test_freight_service_not_found_raises_value_error(
+    def test_freight_fallback_by_price_when_service_wrong(
         self, mock_repository: MagicMock, mock_mercadopago: MagicMock
     ) -> None:
+        """frete_service incorreto mas preço bate com alguma opção → aceita (fallback)."""
+        with patch("src.payment.service.get_quote") as mock_get_quote:
+            mock_get_quote.return_value = [OPTION_PAC, OPTION_JADLOG]
+            mock_repository.get_product_price_and_stock.return_value = {"id": 1, "price": 100.00, "stock": {"Único": 100}, "quantity": 100}
+            mock_mp = mock_mercadopago.return_value
+            mock_mp.payment.return_value.create.return_value = {
+                "status": 201,
+                "response": {"id": "mp-1", "status": "approved", "status_detail": "accredited"},
+            }
+            mock_repository.create_order.return_value = {"id": "order-1"}
+
+            service = PaymentService()
+            service.process_payment(_payload(frete=31.00, frete_service="wrong_service"))
+            mock_repository.create_order.assert_called_once()
+
+    def test_freight_service_wrong_and_price_invalid_raises_value_error(
+        self, mock_repository: MagicMock, mock_mercadopago: MagicMock
+    ) -> None:
+        """frete_service incorreto + preço sem correspondência na cotação → erro."""
         with patch("src.payment.service.get_quote") as mock_get_quote:
             mock_get_quote.return_value = [OPTION_PAC]
             service = PaymentService()
             with pytest.raises(ValueError) as exc_info:
-                service.process_payment(_payload(frete=25.90, frete_service="servico_inexistente"))
-            assert "não encontrado" in str(exc_info.value) or "Recalcule" in str(exc_info.value)
+                service.process_payment(_payload(frete=99.99, frete_service="servico_inexistente"))
+            assert "não confere" in str(exc_info.value) or "Recalcule" in str(exc_info.value)

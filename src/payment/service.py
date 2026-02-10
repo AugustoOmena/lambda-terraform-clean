@@ -42,32 +42,37 @@ class PaymentService:
             raise MelhorEnvioAPIError(f"Frete: não foi possível validar com a transportadora. {e}") from e
         if not opcoes:
             raise ValueError("Frete: nenhuma opção de frete disponível para o CEP informado.")
+        frete_enviado = Decimal(str(payload.frete)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         frete_service = (payload.frete_service or "").strip()
+
         opcao_escolhida = next(
             (o for o in opcoes if o.get("service") and str(o["service"]).strip() == frete_service),
             None,
         )
+        if opcao_escolhida:
+            preco_opcao = Decimal(str(opcao_escolhida["preco"]))
+            if abs(frete_enviado - preco_opcao) <= FREIGHT_TOLERANCE:
+                pass
+            else:
+                opcao_escolhida = None
+
         if not opcao_escolhida:
-            raise ValueError(
-                "Frete: serviço escolhido não encontrado na cotação. Recalcule o frete no checkout."
-            )
-        preco_opcao = Decimal(str(opcao_escolhida["preco"]))
-        frete_enviado = Decimal(str(payload.frete)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        diff = abs(frete_enviado - preco_opcao)
-        if diff > FREIGHT_TOLERANCE:
-            logger.warning(
-                "Frete: valor não confere",
-                extra={
-                    "frete_enviado": float(frete_enviado),
-                    "preco_opcao": float(preco_opcao),
-                    "diff": float(diff),
-                    "frete_service": frete_service,
-                    "opcao_escolhida": opcao_escolhida,
-                },
-            )
-            raise ValueError(
-                "Frete: valor enviado não confere com a cotação do serviço escolhido. Recalcule o frete no checkout."
-            )
+            opcao_por_preco = [
+                o for o in opcoes
+                if abs(frete_enviado - Decimal(str(o["preco"]))) <= FREIGHT_TOLERANCE
+            ]
+            if len(opcao_por_preco) == 1:
+                opcao_escolhida = opcao_por_preco[0]
+                logger.info(
+                    "Frete: validado por preço (frete_service incorreto no frontend)",
+                    extra={"frete_enviado": float(frete_enviado), "opcao": opcao_escolhida},
+                )
+            elif len(opcao_por_preco) > 1:
+                opcao_escolhida = opcao_por_preco[0]
+            else:
+                raise ValueError(
+                    "Frete: valor enviado não confere com nenhuma opção da cotação. Recalcule o frete no checkout."
+                )
 
         # 1. Auditoria de Preços e checagem de estoque (Supabase)
         total_calculado = Decimal('0.00')
