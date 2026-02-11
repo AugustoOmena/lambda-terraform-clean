@@ -11,6 +11,7 @@ import json
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.utilities.parser import parse
 from aws_lambda_powertools.utilities.typing import LambdaContext
+from pydantic import ValidationError
 
 from shared.responses import http_response
 from shared.melhor_envio import MelhorEnvioAPIError
@@ -20,11 +21,18 @@ from service import FulfillmentService
 logger = Logger(service="fulfillment")
 
 
+def _get_method(event: dict) -> str | None:
+    """Compatível com payload format 2.0 (http.method) e 1.0 (httpMethod)."""
+    ctx = event.get("requestContext") or {}
+    return ctx.get("http", {}).get("method") or ctx.get("httpMethod")
+
+
 @logger.inject_lambda_context
 def lambda_handler(event: dict, context: LambdaContext) -> dict:
-    method = event.get("requestContext", {}).get("http", {}).get("method")
+    method = _get_method(event)
     path_params = event.get("pathParameters") or {}
-    raw_path = event.get("rawPath", "")
+    raw_path = event.get("rawPath", "") or event.get("path", "")
+    logger.info("fulfillment request", extra={"method": method, "raw_path": raw_path, "path_param_keys": list(path_params.keys())})
 
     if method == "OPTIONS":
         return http_response(200, {})
@@ -55,6 +63,7 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
             body = _body_json(event)
             payload = parse(event=body, model=CreateShipmentInput)
             result = service.create_shipment(order_id, payload)
+            logger.info("create-shipment ok", extra={"order_id": order_id})
             return http_response(201, result)
 
         # GET /fulfillment/{order_id}/tracking
@@ -62,10 +71,14 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
             result = service.get_tracking_info(order_id)
             return http_response(200, result)
 
+        logger.info("rota não encontrada", extra={"method": method, "raw_path": raw_path, "order_id": order_id})
         return http_response(404, {"error": "Rota não encontrada"})
 
+    except ValidationError as e:
+        logger.warning("Payload inválido", extra={"errors": e.errors()})
+        return http_response(400, {"error": "Dados inválidos", "details": e.errors()})
     except ValueError as e:
-        logger.warning(f"Validação: {e!s}")
+        logger.warning("Validação: %s", e)
         return http_response(400, {"error": "Dados inválidos", "details": str(e)})
     except MelhorEnvioAPIError as e:
         logger.warning(f"Melhor Envio API: {e!s}")
