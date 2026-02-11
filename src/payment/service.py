@@ -142,7 +142,7 @@ class PaymentService:
             }
         }
 
-        # NOVO: Se tiver endereço, adiciona ao payload
+        # Se tiver endereço, adiciona ao payload (sem complement — MP não aceita)
         if payload.payer.address:
             addr = payload.payer.address
             payment_data["payer"]["address"] = {
@@ -153,8 +153,6 @@ class PaymentService:
                 "city": addr.city,
                 "federal_unit": addr.federal_unit,
             }
-            if addr.complement is not None:
-                payment_data["payer"]["address"]["complement"] = addr.complement
 
         # Ramificação de Métodos
         if payload.payment_method_id == "pix":
