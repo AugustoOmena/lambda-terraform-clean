@@ -121,3 +121,8 @@ CREATE INDEX IF NOT EXISTS idx_order_refunds_order_id ON order_refunds(order_id)
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_code TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_url TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_expiration TIMESTAMP WITH TIME ZONE;
+
+-- Migração: fulfillment / rastreamento Melhor Envio
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS tracking_code TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipping_service TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS melhor_envio_order_id TEXT;
