@@ -77,9 +77,8 @@ resource "aws_apigatewayv2_api" "main" {
 
   cors_configuration {
     allow_origins = ["*"]
-    # Adicionado PUT e DELETE para o Backoffice funcionar
     allow_methods = ["POST", "GET", "OPTIONS", "PUT", "DELETE"]
-    allow_headers = ["content-type", "x-idempotency-key", "x-backoffice"]
+    allow_headers = ["content-type", "authorization", "x-idempotency-key", "x-backoffice"]
     max_age       = 300
   }
 }

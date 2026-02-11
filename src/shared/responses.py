@@ -21,14 +21,29 @@ class DecimalEncoder(json.JSONEncoder):
         return super().default(obj)
 
 
+CORS_HEADERS = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, x-backoffice, X-Backoffice",
+}
+
 def http_response(status_code: int, body: dict) -> dict:
+    headers = {"Content-Type": "application/json", **CORS_HEADERS}
     return {
         "statusCode": status_code,
-        "headers": {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type, Authorization, x-backoffice, X-Backoffice"
-        },
+        "headers": headers,
         "body": json.dumps(body, cls=DecimalEncoder)
+    }
+
+
+def options_response() -> dict:
+    """Resposta para preflight CORS; inclui Max-Age para o browser poder cachear."""
+    return {
+        "statusCode": 200,
+        "headers": {
+            **CORS_HEADERS,
+            "Access-Control-Max-Age": "86400",
+            "Content-Type": "application/json",
+        },
+        "body": "{}"
     }

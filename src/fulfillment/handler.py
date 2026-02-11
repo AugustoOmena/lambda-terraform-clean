@@ -13,7 +13,7 @@ from aws_lambda_powertools.utilities.parser import parse
 from aws_lambda_powertools.utilities.typing import LambdaContext
 from pydantic import ValidationError
 
-from shared.responses import http_response
+from shared.responses import http_response, options_response
 from shared.melhor_envio import MelhorEnvioAPIError
 from schemas import CreateShipmentInput, WebhookEvent
 from service import FulfillmentService
@@ -35,7 +35,7 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
     logger.info("fulfillment request", extra={"method": method, "raw_path": raw_path, "path_param_keys": list(path_params.keys())})
 
     if method == "OPTIONS":
-        return http_response(200, {})
+        return options_response()
 
     try:
         service = FulfillmentService()
