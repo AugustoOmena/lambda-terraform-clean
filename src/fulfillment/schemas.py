@@ -5,8 +5,8 @@ from pydantic import BaseModel, Field
 
 
 class CreateShipmentInput(BaseModel):
-    """Input para criar etiqueta no carrinho Melhor Envio."""
-    service_id: int = Field(..., description="ID do serviço Melhor Envio (ex: 1=PAC, 2=SEDEX)")
+    """Input para criar etiqueta no carrinho Melhor Envio. Se omitido, usa shipping_service do pedido."""
+    service_id: Optional[int] = Field(None, description="ID do serviço Melhor Envio (ex: 1=PAC, 2=SEDEX). Opcional: usa o do pedido.")
 
 
 class WebhookEvent(BaseModel):

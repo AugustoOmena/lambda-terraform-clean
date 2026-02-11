@@ -49,6 +49,7 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
         if method == "POST" and order_id and "create-shipment" in raw_path:
             is_backoffice = _is_backoffice(event)
             if not is_backoffice:
+                logger.warning("create-shipment recusado: header x-backoffice ausente ou inválido", extra={"order_id": order_id})
                 return http_response(403, {"error": "Acesso restrito ao backoffice"})
 
             body = _body_json(event)

@@ -43,6 +43,16 @@ class FulfillmentService:
         if not order:
             raise ValueError(f"Pedido {order_id} não encontrado.")
 
+        service_id = payload.service_id
+        if service_id is None:
+            raw = order.get("shipping_service")
+            if raw is None or (isinstance(raw, str) and not raw.strip()):
+                raise ValueError("Pedido sem shipping_service. Não é possível criar etiqueta.")
+            try:
+                service_id = int(raw) if not isinstance(raw, int) else raw
+            except (TypeError, ValueError):
+                raise ValueError("shipping_service do pedido inválido para o Melhor Envio.")
+
         payer = order.get("payer") or {}
         address = payer.get("address")
         if not address:
@@ -116,7 +126,7 @@ class FulfillmentService:
         }
 
         result = add_to_cart(
-            service_id=payload.service_id,
+            service_id=service_id,
             sender=sender,
             recipient=recipient,
             products=products,
