@@ -19,6 +19,7 @@ class Address(BaseModel):
     neighborhood: str
     city: str
     federal_unit: str
+    complement: Optional[str] = Field(None, max_length=30, description="Complemento (até 30 caracteres)")
 
 class Payer(BaseModel):
     email: str 

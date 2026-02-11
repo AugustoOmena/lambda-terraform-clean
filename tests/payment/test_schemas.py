@@ -170,3 +170,27 @@ class TestAddressValidation:
         )
         assert address.zip_code == "30130-100"
         assert address.city == "Belo Horizonte"
+
+    def test_address_complement_optional_and_max_30_chars(self) -> None:
+        """complement é opcional e limitado a 30 caracteres."""
+        address = Address(
+            zip_code="30130-100",
+            street_name="Av. Afonso Pena",
+            street_number="1000",
+            neighborhood="Centro",
+            city="Belo Horizonte",
+            federal_unit="MG",
+            complement="Chaminé",
+        )
+        assert address.complement == "Chaminé"
+
+        with pytest.raises(ValidationError):
+            Address(
+                zip_code="30130-100",
+                street_name="Av. Afonso Pena",
+                street_number="1000",
+                neighborhood="Centro",
+                city="Belo Horizonte",
+                federal_unit="MG",
+                complement="x" * 31,
+            )

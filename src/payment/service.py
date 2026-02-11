@@ -144,14 +144,17 @@ class PaymentService:
 
         # NOVO: Se tiver endereço, adiciona ao payload
         if payload.payer.address:
+            addr = payload.payer.address
             payment_data["payer"]["address"] = {
-                "zip_code": payload.payer.address.zip_code,
-                "street_name": payload.payer.address.street_name,
-                "street_number": payload.payer.address.street_number,
-                "neighborhood": payload.payer.address.neighborhood,
-                "city": payload.payer.address.city,
-                "federal_unit": payload.payer.address.federal_unit
+                "zip_code": addr.zip_code,
+                "street_name": addr.street_name,
+                "street_number": addr.street_number,
+                "neighborhood": addr.neighborhood,
+                "city": addr.city,
+                "federal_unit": addr.federal_unit,
             }
+            if addr.complement is not None:
+                payment_data["payer"]["address"]["complement"] = addr.complement
 
         # Ramificação de Métodos
         if payload.payment_method_id == "pix":
