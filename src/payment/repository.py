@@ -62,9 +62,11 @@ class PaymentRepository:
         payload,
         mp_response,
         total_amount,
-        payment_code: str = None,
-        payment_url: str = None,
-        payment_expiration: str = None,
+        payment_code: str | None = None,
+        payment_url: str | None = None,
+        payment_expiration: str | None = None,
+        shipping_service: str | None = None,
+        shipping_amount: float | None = None,
     ):
         payer_dict = payload.payer.model_dump(mode="json") if payload.payer else {}
         order_data = {
@@ -82,6 +84,10 @@ class PaymentRepository:
             order_data["payment_url"] = payment_url
         if payment_expiration:
             order_data["payment_expiration"] = payment_expiration
+        if shipping_service:
+            order_data["shipping_service"] = shipping_service
+        if shipping_amount is not None:
+            order_data["shipping_amount"] = shipping_amount
 
         res_order = self.db.table("orders").insert(order_data).execute()
         

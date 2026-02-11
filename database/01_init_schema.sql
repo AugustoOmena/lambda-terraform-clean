@@ -125,4 +125,5 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_expiration TIMESTAMP WITH TI
 -- Migração: fulfillment / rastreamento Melhor Envio
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS tracking_code TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipping_service TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipping_amount NUMERIC;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS melhor_envio_order_id TEXT;

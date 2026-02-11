@@ -43,17 +43,15 @@ class PaymentService:
         if not opcoes:
             raise ValueError("Frete: nenhuma opção de frete disponível para o CEP informado.")
         frete_enviado = Decimal(str(payload.frete)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        frete_service = (payload.frete_service or "").strip()
+        frete_service_hint = (payload.frete_service or "").strip()
 
         opcao_escolhida = next(
-            (o for o in opcoes if o.get("service") and str(o["service"]).strip() == frete_service),
+            (o for o in opcoes if o.get("service") and str(o["service"]).strip() == frete_service_hint),
             None,
         )
         if opcao_escolhida:
             preco_opcao = Decimal(str(opcao_escolhida["preco"]))
-            if abs(frete_enviado - preco_opcao) <= FREIGHT_TOLERANCE:
-                pass
-            else:
+            if abs(frete_enviado - preco_opcao) > FREIGHT_TOLERANCE:
                 opcao_escolhida = None
 
         if not opcao_escolhida:
@@ -73,6 +71,10 @@ class PaymentService:
                 raise ValueError(
                     "Frete: valor enviado não confere com nenhuma opção da cotação. Recalcule o frete no checkout."
                 )
+
+        # Fonte autoritativa: backend (Melhor Envio). Persistido no pedido para fulfillment/auditoria.
+        shipping_service_canonical = (opcao_escolhida.get("service") or "").strip() or None
+        shipping_amount_canonical = Decimal(str(opcao_escolhida["preco"])).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
         # 1. Auditoria de Preços e checagem de estoque (Supabase)
         total_calculado = Decimal('0.00')
@@ -194,12 +196,14 @@ class PaymentService:
             trans = response.get("transaction_details", {})
             payment_url = trans.get("external_resource_url")
 
-        # 5. Salva Pedido
+        # 5. Salva Pedido (shipping_service e shipping_amount vêm da cotação backend, não do front)
         order = self.repo.create_order(
             payload, response, final_transaction_amount,
             payment_code=payment_code,
             payment_url=payment_url,
             payment_expiration=payment_expiration,
+            shipping_service=shipping_service_canonical,
+            shipping_amount=float(shipping_amount_canonical),
         )
         
         # 6. Baixa Estoque
