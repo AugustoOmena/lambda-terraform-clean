@@ -1,5 +1,5 @@
 from typing import List, Optional
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 class Identification(BaseModel):
     type: str = Field(default="CPF", description="Tipo de documento")
@@ -22,12 +22,21 @@ class Address(BaseModel):
     complement: Optional[str] = Field(None, max_length=30, description="Complemento (até 30 caracteres)")
 
 class Payer(BaseModel):
-    email: str 
-    first_name: Optional[str] = "Cliente"
-    last_name: Optional[str] = "Desconhecido"
+    email: str
+    first_name: Optional[str] = Field(default="Cliente", description="Nome enviado pelo checkout")
+    last_name: Optional[str] = Field(default="Desconhecido", description="Sobrenome enviado pelo checkout")
     identification: Identification
-    # NOVO: Endereço opcional
     address: Optional[Address] = None
+
+    @model_validator(mode="after")
+    def normalize_payer_name(self):
+        """Garante valores não vazios para MP quando o checkout envia first_name/last_name separados."""
+        updates = {}
+        if not (self.first_name and str(self.first_name).strip()):
+            updates["first_name"] = "Cliente"
+        if not (self.last_name and str(self.last_name).strip()):
+            updates["last_name"] = "Desconhecido"
+        return self.model_copy(update=updates) if updates else self
 
 class Item(BaseModel):
     id: int

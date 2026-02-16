@@ -127,16 +127,17 @@ class PaymentService:
         # Valor autoritativo: subtotal do backend + frete validado
         final_transaction_amount = float(total_esperado)
 
-        # 2. Monta Payload MP
-# 2. Monta o Payload do Mercado Pago
+        # 2. Monta Payload MP (first_name/last_name normalizados para compatibilidade com o checkout)
+        first_name = (payload.payer.first_name or "").strip() or "Cliente"
+        last_name = (payload.payer.last_name or "").strip() or "Desconhecido"
         payment_data = {
             "transaction_amount": final_transaction_amount,
             "description": f"Pedido Loja - {payload.payer.email}",
             "payment_method_id": payload.payment_method_id,
             "payer": {
                 "email": payload.payer.email,
-                "first_name": payload.payer.first_name,
-                "last_name": payload.payer.last_name,
+                "first_name": first_name,
+                "last_name": last_name,
                 "identification": {
                     "type": payload.payer.identification.type,
                     "number": payload.payer.identification.number
@@ -179,10 +180,29 @@ class PaymentService:
         response = payment_response["response"]
 
         if payment_response["status"] not in [200, 201]:
-             error_msg = response.get('message', 'Erro MP')
-             if 'cause' in response and response['cause']:
-                 error_msg = f"{error_msg} - {response['cause'][0].get('description')}"
-             raise Exception(error_msg)
+            error_response = response
+            print(f"Erro do Provedor: {error_response}")
+            logger.error("Erro do provedor de pagamento", extra={"response": error_response})
+            error_msg = response.get("message", "Erro MP")
+            causes = response.get("cause") or []
+            if causes:
+                first_cause = causes[0] if isinstance(causes, list) else causes
+                desc = first_cause.get("description", "") if isinstance(first_cause, dict) else str(first_cause)
+                if desc:
+                    error_msg = f"{error_msg} - {desc}"
+            code = str(response.get("error") or response.get("code") or "").lower()
+            err_str = str(error_response).lower()
+            desc_lower = (error_msg or "").lower()
+            is_name_related = (
+                "payer" in err_str or "first_name" in err_str or "last_name" in err_str or "name" in err_str
+                or "first_name" in desc_lower or "last_name" in desc_lower or "payer" in desc_lower
+            )
+            if "invalid_parameter" in code or "invalid_parameter" in desc_lower:
+                if is_name_related:
+                    raise ValueError(
+                        "Nome do pagador inválido. Verifique first_name e last_name (evite caracteres especiais ou campos vazios)."
+                    )
+            raise Exception(error_msg)
 
         # 4. Extrai dados PIX/boleto para o usuário copiar depois
         payment_code = None
