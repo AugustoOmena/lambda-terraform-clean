@@ -190,15 +190,10 @@ class PaymentService:
                 desc = first_cause.get("description", "") if isinstance(first_cause, dict) else str(first_cause)
                 if desc:
                     error_msg = f"{error_msg} - {desc}"
-            code = str(response.get("error") or response.get("code") or "").lower()
+            code = response.get("error") or response.get("code") or ""
             err_str = str(error_response).lower()
-            desc_lower = (error_msg or "").lower()
-            is_name_related = (
-                "payer" in err_str or "first_name" in err_str or "last_name" in err_str or "name" in err_str
-                or "first_name" in desc_lower or "last_name" in desc_lower or "payer" in desc_lower
-            )
-            if "invalid_parameter" in code or "invalid_parameter" in desc_lower:
-                if is_name_related:
+            if "invalid_parameter" in str(code).lower() or "invalid_parameter" in error_msg.lower():
+                if "payer" in err_str or "first_name" in err_str or "last_name" in err_str or "name" in err_str:
                     raise ValueError(
                         "Nome do pagador inválido. Verifique first_name e last_name (evite caracteres especiais ou campos vazios)."
                     )
