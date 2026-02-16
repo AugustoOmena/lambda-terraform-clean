@@ -25,6 +25,7 @@ CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization, x-backoffice, X-Backoffice",
+    "Access-Control-Expose-Headers": "*",
 }
 
 def http_response(status_code: int, body: dict) -> dict:
@@ -37,13 +38,17 @@ def http_response(status_code: int, body: dict) -> dict:
 
 
 def options_response() -> dict:
-    """Resposta para preflight CORS; inclui Max-Age para o browser poder cachear."""
+    """
+    Resposta para preflight CORS. 204 + Allow-Headers * evita bloqueio
+    quando o front envia headers não listados (Accept, etc.).
+    """
     return {
-        "statusCode": 200,
+        "statusCode": 204,
         "headers": {
-            **CORS_HEADERS,
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
             "Access-Control-Max-Age": "86400",
-            "Content-Type": "application/json",
         },
-        "body": "{}"
+        "body": ""
     }

@@ -72,7 +72,7 @@ class PaymentService:
                     "Frete: valor enviado não confere com nenhuma opção da cotação. Recalcule o frete no checkout."
                 )
 
-        # Fonte autoritativa: backend (Melhor Envio). Persistido no pedido para fulfillment/auditoria.
+        # Fonte autoritativa: backend (Melhor Envio). Persistido no pedido para auditoria.
         shipping_service_canonical = (opcao_escolhida.get("service") or "").strip() or None
         shipping_amount_canonical = Decimal(str(opcao_escolhida["preco"])).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 

@@ -356,70 +356,7 @@ resource "aws_lambda_permission" "api_gw_shipping" {
   source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*/frete"
 }
 
-# --- 8. MICROSERVIÇO: FULFILLMENT (Etiquetas e rastreamento - Melhor Envio) ---
-module "fulfillment_lambda" {
-  source = "../../modules/lambda_function"
-
-  function_name = "loja-omena-fulfillment"
-  handler       = "handler.lambda_handler"
-  source_dir    = "../../../src/fulfillment"
-
-  layers = [
-    aws_lambda_layer_version.main_dependencies.arn,
-    aws_lambda_layer_version.shared_code.arn
-  ]
-
-  environment_variables = {
-    SUPABASE_URL            = var.supabase_url
-    SUPABASE_KEY            = var.supabase_key
-    MELHOR_ENVIO_TOKEN      = var.melhor_envio_token
-    MELHOR_ENVIO_API_URL    = var.melhor_envio_api_url
-    CEP_ORIGEM              = var.cep_origem
-    SENDER_NAME             = var.sender_name
-    SENDER_PHONE            = var.sender_phone
-    SENDER_EMAIL            = var.sender_email
-    SENDER_DOCUMENT         = var.sender_document
-    SENDER_ADDRESS          = var.sender_address
-    SENDER_NUMBER           = var.sender_number
-    SENDER_NEIGHBORHOOD     = var.sender_neighborhood
-    SENDER_CITY             = var.sender_city
-    SENDER_STATE            = var.sender_state
-    POWERTOOLS_SERVICE_NAME = "fulfillment"
-  }
-
-  tags = { Project = "LojaOmena", Env = "Dev" }
-}
-
-resource "aws_apigatewayv2_integration" "fulfillment" {
-  api_id                 = aws_apigatewayv2_api.main.id
-  integration_type       = "AWS_PROXY"
-  integration_uri        = module.fulfillment_lambda.invoke_arn
-  payload_format_version = "2.0"
-}
-
-# Rota 1: Raiz (/fulfillment) - webhook
-resource "aws_apigatewayv2_route" "fulfillment_root" {
-  api_id    = aws_apigatewayv2_api.main.id
-  route_key = "ANY /fulfillment"
-  target    = "integrations/${aws_apigatewayv2_integration.fulfillment.id}"
-}
-
-# Rota 2: Proxy (/fulfillment/{order_id}/...) para create-shipment, tracking
-resource "aws_apigatewayv2_route" "fulfillment_proxy" {
-  api_id    = aws_apigatewayv2_api.main.id
-  route_key = "ANY /fulfillment/{proxy+}"
-  target    = "integrations/${aws_apigatewayv2_integration.fulfillment.id}"
-}
-
-resource "aws_lambda_permission" "api_gw_fulfillment" {
-  statement_id  = "AllowExecutionFromAPIGateway"
-  action        = "lambda:InvokeFunction"
-  function_name = module.fulfillment_lambda.function_name
-  principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*/fulfillment*"
-}
-
-# --- 9. TRIGGER: Cleanup imagens órfãs (diário 03:00 UTC = meia-noite BRT) ---
+# --- 8. TRIGGER: Cleanup imagens órfãs (diário 03:00 UTC = meia-noite BRT) ---
 module "cleanup_orphan_images_lambda" {
   source = "../../modules/lambda_function"
 
