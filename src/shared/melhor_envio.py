@@ -5,6 +5,7 @@ Expects env: MELHOR_ENVIO_TOKEN, CEP_ORIGEM; optional MELHOR_ENVIO_API_URL.
 """
 
 import json
+import math
 import os
 import ssl
 import urllib.error
@@ -129,16 +130,29 @@ def get_quote(cep_destino: str, products: list[dict[str, Any]]) -> list[dict[str
     token = _env("MELHOR_ENVIO_TOKEN", "")
     cep_origem = _env("CEP_ORIGEM", "")
 
+    def _dim_int(val) -> int:
+        """Dimensões em cm como int (já ceil no shipping); evita divergência com Carrinho."""
+        if isinstance(val, int) and not isinstance(val, bool):
+            return val
+        return int(math.ceil(float(val)))
+
+    def _weight_3(val) -> float:
+        """Peso em kg com no máximo 3 casas decimais (Melhor Envio)."""
+        return round(float(val), 3)
+
+    def _money_2(val) -> float:
+        return round(float(val), 2)
+
     payload_products = []
     for i, p in enumerate(products, start=1):
         payload_products.append({
             "id": str(p.get("id", i)),
-            "width": round(float(p["width"]), 2),
-            "height": round(float(p["height"]), 2),
-            "length": round(float(p["length"]), 2),
-            "weight": round(float(p["weight"]), 3),
+            "width": _dim_int(p["width"]),
+            "height": _dim_int(p["height"]),
+            "length": _dim_int(p["length"]),
+            "weight": _weight_3(p["weight"]),
             "quantity": int(p.get("quantity", 1)),
-            "insurance_value": round(float(p.get("insurance_value", 0)), 2),
+            "insurance_value": _money_2(p.get("insurance_value", 0)),
         })
 
     body = {
