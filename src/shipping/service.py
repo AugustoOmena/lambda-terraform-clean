@@ -2,6 +2,8 @@
 Freight quote service: integrates with Melhor Envio API for shipping calculation.
 
 All CEPs are quoted via the external API; no local rules or region conditionals.
+Products montados com tipos alinhados ao Carrinho: int (cm) nas dimensões,
+peso com 3 casas decimais (float no payload JSON da API).
 """
 
 from aws_lambda_powertools import Logger
@@ -12,6 +14,12 @@ from schemas import FreightQuoteInput
 __all__ = ["MelhorEnvioAPIError", "quote_freight"]
 
 logger = Logger(service="shipping")
+
+
+def _weight_for_api(weight) -> float:
+    """Peso em kg com até 3 casas decimais, formato esperado pelo calculate/carrinho."""
+    # Decimal nativo do schema já quantizado; float garante JSON serializável idêntico ao round(..., 3) no cliente
+    return float(weight)
 
 
 def quote_freight(payload_input: FreightQuoteInput) -> list[dict]:
@@ -27,12 +35,12 @@ def quote_freight(payload_input: FreightQuoteInput) -> list[dict]:
     products = [
         {
             "id": str(i),
-            "width": item.width,
-            "height": item.height,
-            "length": item.length,
-            "weight": item.weight,
-            "quantity": item.quantity,
-            "insurance_value": item.insurance_value,
+            "width": int(item.width),
+            "height": int(item.height),
+            "length": int(item.length),
+            "weight": _weight_for_api(item.weight),
+            "quantity": int(item.quantity),
+            "insurance_value": float(item.insurance_value),
         }
         for i, item in enumerate(payload_input.itens, start=1)
     ]

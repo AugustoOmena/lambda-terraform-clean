@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import pytest
 from pydantic import ValidationError
 
@@ -10,9 +12,11 @@ class TestShippingItemInput:
     def test_valid_item(self) -> None:
         item = ShippingItemInput(width=11, height=17, length=11, weight=0.3)
         assert item.width == 11
-        assert item.weight == 0.3
+        assert item.height == 17
+        assert item.length == 11
+        assert item.weight == Decimal("0.3")
         assert item.quantity == 1
-        assert item.insurance_value == 0.0
+        assert item.insurance_value == Decimal("0")
 
     def test_item_quantity_default_one(self) -> None:
         item = ShippingItemInput(width=10, height=10, length=10, weight=0.5, quantity=2)
@@ -24,10 +28,15 @@ class TestShippingItemInput:
         with pytest.raises(ValidationError):
             ShippingItemInput(width=10, height=10, length=10, weight=-0.1)
 
-    def test_item_coerces_numeric_strings(self) -> None:
+    def test_dimensions_ceil_fractional_input(self) -> None:
+        """Dimensões fracionárias viram int via math.ceil (alinhado Melhor Envio / Carrinho)."""
         item = ShippingItemInput(width="11.5", height=17, length=11, weight="0.3")
-        assert item.width == 11.5
-        assert item.weight == 0.3
+        assert item.width == 12
+        assert item.weight == Decimal("0.3")
+
+    def test_weight_quantized_three_decimals(self) -> None:
+        item = ShippingItemInput(width=10, height=10, length=10, weight=Decimal("0.3001"))
+        assert item.weight == Decimal("0.300")
 
 
 class TestFreightQuoteInput:

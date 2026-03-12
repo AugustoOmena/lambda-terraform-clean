@@ -28,6 +28,15 @@ jobs:
       TF_VAR_firebase_database_url: ${{ (github.base_ref == 'main' || github.ref == 'refs/heads/main') && secrets.TF_VAR_FIREBASE_DATABASE_URL || secrets.TF_VAR_FIREBASE_DATABASE_URL_DEV }}
       TF_VAR_melhor_envio_token: ${{ secrets.MELHOR_ENVIO_TOKEN }}
       TF_VAR_cep_origem: ${{ secrets.CEP_ORIGEM }}
+      TF_VAR_sender_name: ${{ secrets.SENDER_NAME }}
+      TF_VAR_sender_phone: ${{ secrets.SENDER_PHONE }}
+      TF_VAR_sender_email: ${{ secrets.SENDER_EMAIL }}
+      TF_VAR_sender_document: ${{ secrets.SENDER_DOCUMENT }}
+      TF_VAR_sender_address: ${{ secrets.SENDER_ADDRESS }}
+      TF_VAR_sender_number: ${{ secrets.SENDER_NUMBER }}
+      TF_VAR_sender_neighborhood: ${{ secrets.SENDER_NEIGHBORHOOD }}
+      TF_VAR_sender_city: ${{ secrets.SENDER_CITY }}
+      TF_VAR_sender_state: ${{ secrets.SENDER_STATE }}
 
     defaults:
       run:

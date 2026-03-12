@@ -2,17 +2,20 @@ import mercadopago
 import os
 from decimal import Decimal, ROUND_HALF_UP
 
+from aws_lambda_powertools import Logger
 from shared.firebase import set_product_consolidated
 from shared.melhor_envio import MelhorEnvioAPIError, get_quote
 
 from repository import PaymentRepository
 
+logger = Logger(service="payment")
+
 # Pacote único padrão para cotação (alinhado ao frontend até haver dimensões por produto).
 DEFAULT_WIDTH_CM = 16
 DEFAULT_HEIGHT_CM = 12
 DEFAULT_LENGTH_CM = 20
-DEFAULT_WEIGHT_KG = 0.5
-FREIGHT_TOLERANCE = Decimal("0.01")
+DEFAULT_WEIGHT_KG = Decimal("0.3")
+FREIGHT_TOLERANCE = Decimal("0.15")
 
 
 class PaymentService:
@@ -39,21 +42,39 @@ class PaymentService:
             raise MelhorEnvioAPIError(f"Frete: não foi possível validar com a transportadora. {e}") from e
         if not opcoes:
             raise ValueError("Frete: nenhuma opção de frete disponível para o CEP informado.")
-        frete_service = (payload.frete_service or "").strip()
+        frete_enviado = Decimal(str(payload.frete)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        frete_service_hint = (payload.frete_service or "").strip()
+
         opcao_escolhida = next(
-            (o for o in opcoes if o.get("service") and str(o["service"]).strip() == frete_service),
+            (o for o in opcoes if o.get("service") and str(o["service"]).strip() == frete_service_hint),
             None,
         )
+        if opcao_escolhida:
+            preco_opcao = Decimal(str(opcao_escolhida["preco"]))
+            if abs(frete_enviado - preco_opcao) > FREIGHT_TOLERANCE:
+                opcao_escolhida = None
+
         if not opcao_escolhida:
-            raise ValueError(
-                "Frete: serviço escolhido não encontrado na cotação. Recalcule o frete no checkout."
-            )
-        preco_opcao = Decimal(str(opcao_escolhida["preco"]))
-        frete_enviado = Decimal(str(payload.frete)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        if abs(frete_enviado - preco_opcao) > FREIGHT_TOLERANCE:
-            raise ValueError(
-                "Frete: valor enviado não confere com a cotação do serviço escolhido. Recalcule o frete no checkout."
-            )
+            opcao_por_preco = [
+                o for o in opcoes
+                if abs(frete_enviado - Decimal(str(o["preco"]))) <= FREIGHT_TOLERANCE
+            ]
+            if len(opcao_por_preco) == 1:
+                opcao_escolhida = opcao_por_preco[0]
+                logger.info(
+                    "Frete: validado por preço (frete_service incorreto no frontend)",
+                    extra={"frete_enviado": float(frete_enviado), "opcao": opcao_escolhida},
+                )
+            elif len(opcao_por_preco) > 1:
+                opcao_escolhida = opcao_por_preco[0]
+            else:
+                raise ValueError(
+                    "Frete: valor enviado não confere com nenhuma opção da cotação. Recalcule o frete no checkout."
+                )
+
+        # Fonte autoritativa: backend (Melhor Envio). Persistido no pedido para auditoria.
+        shipping_service_canonical = (opcao_escolhida.get("service") or "").strip() or None
+        shipping_amount_canonical = Decimal(str(opcao_escolhida["preco"])).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
         # 1. Auditoria de Preços e checagem de estoque (Supabase)
         total_calculado = Decimal('0.00')
@@ -106,16 +127,17 @@ class PaymentService:
         # Valor autoritativo: subtotal do backend + frete validado
         final_transaction_amount = float(total_esperado)
 
-        # 2. Monta Payload MP
-# 2. Monta o Payload do Mercado Pago
+        # 2. Monta Payload MP (first_name/last_name normalizados para compatibilidade com o checkout)
+        first_name = (payload.payer.first_name or "").strip() or "Cliente"
+        last_name = (payload.payer.last_name or "").strip() or "Desconhecido"
         payment_data = {
             "transaction_amount": final_transaction_amount,
             "description": f"Pedido Loja - {payload.payer.email}",
             "payment_method_id": payload.payment_method_id,
             "payer": {
                 "email": payload.payer.email,
-                "first_name": payload.payer.first_name,
-                "last_name": payload.payer.last_name,
+                "first_name": first_name,
+                "last_name": last_name,
                 "identification": {
                     "type": payload.payer.identification.type,
                     "number": payload.payer.identification.number
@@ -123,15 +145,16 @@ class PaymentService:
             }
         }
 
-        # NOVO: Se tiver endereço, adiciona ao payload
+        # Se tiver endereço, adiciona ao payload (sem complement — MP não aceita)
         if payload.payer.address:
+            addr = payload.payer.address
             payment_data["payer"]["address"] = {
-                "zip_code": payload.payer.address.zip_code,
-                "street_name": payload.payer.address.street_name,
-                "street_number": payload.payer.address.street_number,
-                "neighborhood": payload.payer.address.neighborhood,
-                "city": payload.payer.address.city,
-                "federal_unit": payload.payer.address.federal_unit
+                "zip_code": addr.zip_code,
+                "street_name": addr.street_name,
+                "street_number": addr.street_number,
+                "neighborhood": addr.neighborhood,
+                "city": addr.city,
+                "federal_unit": addr.federal_unit,
             }
 
         # Ramificação de Métodos
@@ -157,24 +180,57 @@ class PaymentService:
         response = payment_response["response"]
 
         if payment_response["status"] not in [200, 201]:
-             error_msg = response.get('message', 'Erro MP')
-             if 'cause' in response and response['cause']:
-                 error_msg = f"{error_msg} - {response['cause'][0].get('description')}"
-             raise Exception(error_msg)
+            error_response = response
+            print(f"Erro do Provedor: {error_response}")
+            logger.error("Erro do provedor de pagamento", extra={"response": error_response})
+            error_msg = response.get("message", "Erro MP")
+            causes = response.get("cause") or []
+            if causes:
+                first_cause = causes[0] if isinstance(causes, list) else causes
+                desc = first_cause.get("description", "") if isinstance(first_cause, dict) else str(first_cause)
+                if desc:
+                    error_msg = f"{error_msg} - {desc}"
+            code = response.get("error") or response.get("code") or ""
+            err_str = str(error_response).lower()
+            if "invalid_parameter" in str(code).lower() or "invalid_parameter" in error_msg.lower():
+                if "payer" in err_str or "first_name" in err_str or "last_name" in err_str or "name" in err_str:
+                    raise ValueError(
+                        "Nome do pagador inválido. Verifique first_name e last_name (evite caracteres especiais ou campos vazios)."
+                    )
+            raise Exception(error_msg)
 
-        # 4. Salva Pedido
-        order = self.repo.create_order(payload, response, final_transaction_amount)
+        # 4. Extrai dados PIX/boleto para o usuário copiar depois
+        payment_code = None
+        payment_url = None
+        payment_expiration = response.get("date_of_expiration")
+
+        if payload.payment_method_id == "pix":
+            poi = response.get("point_of_interaction", {}).get("transaction_data", {})
+            payment_code = poi.get("qr_code")
+        elif "bol" in payload.payment_method_id or payload.payment_method_id == "pec":
+            trans = response.get("transaction_details", {})
+            payment_url = trans.get("external_resource_url")
+
+        # 5. Salva Pedido (shipping_service e shipping_amount vêm da cotação backend, não do front)
+        order = self.repo.create_order(
+            payload, response, final_transaction_amount,
+            payment_code=payment_code,
+            payment_url=payment_url,
+            payment_expiration=payment_expiration,
+            shipping_service=shipping_service_canonical,
+            shipping_amount=float(shipping_amount_canonical),
+        )
         
-        # 5. Baixa Estoque
+        # 6. Baixa Estoque
         self.repo.update_stock(payload.items)
 
-        # 6. Sincroniza produtos vendidos no Firebase (formato consolidado com variantes)
+        # 7. Sincroniza produtos vendidos no Firebase (formato consolidado com variantes)
         for product_id in {item.id for item in payload.items}:
             payload_fb = self.repo.get_product_with_variants(product_id)
             if payload_fb:
                 set_product_consolidated(payload_fb)
 
-        # 7. Retorno
+        # 8. Retorno
         result = {
             "id": response["id"],
             "status": response["status"],

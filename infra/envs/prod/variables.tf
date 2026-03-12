@@ -54,3 +54,59 @@ variable "melhor_envio_api_url" {
   type        = string
   default     = "https://sandbox.melhorenvio.com.br"
 }
+
+# Dados do remetente (para criar etiquetas no Melhor Envio)
+variable "sender_name" {
+  description = "Nome do remetente para etiquetas"
+  type        = string
+  default     = "Loja Omena"
+}
+
+variable "sender_phone" {
+  description = "Telefone do remetente"
+  type        = string
+  default     = ""
+}
+
+variable "sender_email" {
+  description = "Email do remetente"
+  type        = string
+  default     = ""
+}
+
+variable "sender_document" {
+  description = "CPF/CNPJ do remetente"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "sender_address" {
+  description = "Logradouro do remetente"
+  type        = string
+  default     = ""
+}
+
+variable "sender_number" {
+  description = "Número do endereço do remetente"
+  type        = string
+  default     = ""
+}
+
+variable "sender_neighborhood" {
+  description = "Bairro do remetente"
+  type        = string
+  default     = ""
+}
+
+variable "sender_city" {
+  description = "Cidade do remetente"
+  type        = string
+  default     = ""
+}
+
+variable "sender_state" {
+  description = "UF do remetente (ex: SP, RJ)"
+  type        = string
+  default     = ""
+}

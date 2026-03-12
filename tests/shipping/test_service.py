@@ -34,7 +34,9 @@ class TestQuoteFreight:
             call_cep, call_products = mock_get_quote.call_args[0]
             assert call_cep == "01310100"
             assert len(call_products) == 2
-            assert call_products[0]["width"] == 11 and call_products[0]["weight"] == 0.3
+            assert call_products[0]["width"] == 11 and call_products[0]["weight"] == 0.3  # float 3 decimais p/ API
+            assert isinstance(call_products[0]["width"], int)
+            assert isinstance(call_products[0]["height"], int)
             assert call_products[1]["quantity"] == 2
 
     def test_raises_melhor_envio_api_error_on_failure(self, valid_quote_payload) -> None:

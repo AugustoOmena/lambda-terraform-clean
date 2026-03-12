@@ -12,3 +12,13 @@ variable "environment_variables" {
   default = {}
 }
 variable "tags" { type = map(string) }
+variable "timeout" {
+  description = "Timeout da Lambda em segundos"
+  type        = number
+  default     = 10
+}
+variable "memory_size" {
+  description = "Memória da Lambda em MB"
+  type        = number
+  default     = 128
+}

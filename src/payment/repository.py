@@ -57,17 +57,38 @@ class PaymentRepository:
             "variants": variants,
         }
 
-    def create_order(self, payload, mp_response, total_amount):
-        # 1. Cria o Pedido (Order)
+    def create_order(
+        self,
+        payload,
+        mp_response,
+        total_amount,
+        payment_code: str | None = None,
+        payment_url: str | None = None,
+        payment_expiration: str | None = None,
+        shipping_service: str | None = None,
+        shipping_amount: float | None = None,
+    ):
+        payer_dict = payload.payer.model_dump(mode="json") if payload.payer else {}
         order_data = {
             "user_id": payload.user_id,
             "total_amount": total_amount,
             "status": mp_response.get("status"),
             "mp_payment_id": str(mp_response.get("id")),
             "payment_method": payload.payment_method_id,
-            "installments": payload.installments
+            "installments": payload.installments,
+            "payer": payer_dict,
         }
-        
+        if payment_code:
+            order_data["payment_code"] = payment_code
+        if payment_url:
+            order_data["payment_url"] = payment_url
+        if payment_expiration:
+            order_data["payment_expiration"] = payment_expiration
+        if shipping_service:
+            order_data["shipping_service"] = shipping_service
+        if shipping_amount is not None:
+            order_data["shipping_amount"] = shipping_amount
+
         res_order = self.db.table("orders").insert(order_data).execute()
         
         if not res_order.data:
