@@ -41,9 +41,7 @@ def _parse_quote_option(entry: dict[str, Any]) -> dict[str, Any] | None:
         or entry.get("company_name")
         or "Transportadora"
     )
-    value = entry.get("custom_price")
-    if value is None or value == "":
-        value = entry.get("price")
+    value = entry.get("price")
     if value is None:
         return None
     try:

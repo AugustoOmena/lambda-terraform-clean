@@ -20,10 +20,10 @@ class TestParseQuoteOption:
         assert out["preco"] == 25.90
         assert out["prazo_entrega_dias"] == 8
 
-    def test_uses_custom_price_when_present(self) -> None:
+    def test_ignores_custom_price_uses_standard_price(self) -> None:
         entry = {"name": "PAC", "price": 20.00, "custom_price": 22.50}
         out = _parse_quote_option(entry)
-        assert out["preco"] == 22.50
+        assert out["preco"] == 20.00
 
     def test_company_name_fallback(self) -> None:
         entry = {"company": {"name": "Jadlog"}, "price": 31.00}
