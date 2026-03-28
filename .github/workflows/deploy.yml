@@ -18,25 +18,7 @@ jobs:
     name: "Terraform Build & Deploy"
     runs-on: ubuntu-latest
     environment: ${{ (github.base_ref == 'main' || github.ref == 'refs/heads/main') && 'production' || 'development' }}
-
-    env:
-      TF_VAR_supabase_url: ${{ (github.base_ref == 'main' || github.ref == 'refs/heads/main') && secrets.TF_VAR_SUPABASE_URL || secrets.TF_VAR_SUPABASE_URL_DEV }}
-      TF_VAR_supabase_key: ${{ (github.base_ref == 'main' || github.ref == 'refs/heads/main') && secrets.TF_VAR_SUPABASE_KEY || secrets.TF_VAR_SUPABASE_KEY_DEV }}
-      TF_VAR_firebase_project_id: ${{ (github.base_ref == 'main' || github.ref == 'refs/heads/main') && secrets.TF_VAR_FIREBASE_PROJECT_ID || secrets.TF_VAR_FIREBASE_PROJECT_ID_DEV }}
-      TF_VAR_firebase_client_email: ${{ (github.base_ref == 'main' || github.ref == 'refs/heads/main') && secrets.TF_VAR_FIREBASE_CLIENT_EMAIL || secrets.TF_VAR_FIREBASE_CLIENT_EMAIL_DEV }}
-      TF_VAR_firebase_private_key: ${{ (github.base_ref == 'main' || github.ref == 'refs/heads/main') && secrets.TF_VAR_FIREBASE_PRIVATE_KEY || secrets.TF_VAR_FIREBASE_PRIVATE_KEY_DEV }}
-      TF_VAR_firebase_database_url: ${{ (github.base_ref == 'main' || github.ref == 'refs/heads/main') && secrets.TF_VAR_FIREBASE_DATABASE_URL || secrets.TF_VAR_FIREBASE_DATABASE_URL_DEV }}
-      TF_VAR_melhor_envio_token: ${{ secrets.MELHOR_ENVIO_TOKEN }}
-      TF_VAR_cep_origem: ${{ secrets.CEP_ORIGEM }}
-      TF_VAR_sender_name: ${{ secrets.SENDER_NAME }}
-      TF_VAR_sender_phone: ${{ secrets.SENDER_PHONE }}
-      TF_VAR_sender_email: ${{ secrets.SENDER_EMAIL }}
-      TF_VAR_sender_document: ${{ secrets.SENDER_DOCUMENT }}
-      TF_VAR_sender_address: ${{ secrets.SENDER_ADDRESS }}
-      TF_VAR_sender_number: ${{ secrets.SENDER_NUMBER }}
-      TF_VAR_sender_neighborhood: ${{ secrets.SENDER_NEIGHBORHOOD }}
-      TF_VAR_sender_city: ${{ secrets.SENDER_CITY }}
-      TF_VAR_sender_state: ${{ secrets.SENDER_STATE }}
+    # Segredos da aplicação vêm do SSM (infra/envs/*/ssm.tf). GitHub só precisa das chaves AWS.
 
     defaults:
       run:
