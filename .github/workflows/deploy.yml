@@ -17,9 +17,8 @@ jobs:
   terraform:
     name: "Terraform Build & Deploy"
     runs-on: ubuntu-latest
+    # production / development: cada um tem secrets AWS_ACCESS_KEY_ID e AWS_SECRET_ACCESS_KEY (valores diferentes).
     environment: ${{ (github.base_ref == 'main' || github.ref == 'refs/heads/main') && 'production' || 'development' }}
-    env:
-      IS_PROD: ${{ github.base_ref == 'main' || github.ref == 'refs/heads/main' }}
 
     defaults:
       run:
@@ -29,13 +28,11 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      # --- A MUDANÇA MÁGICA ---
-      # Configura as credenciais explicitamente antes de tudo
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
-          aws-access-key-id: ${{ env.IS_PROD == 'true' && secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ env.IS_PROD == 'true' && secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
       - name: Setup Python
