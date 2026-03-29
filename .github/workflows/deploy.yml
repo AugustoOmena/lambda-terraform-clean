@@ -18,7 +18,8 @@ jobs:
     name: "Terraform Build & Deploy"
     runs-on: ubuntu-latest
     environment: ${{ (github.base_ref == 'main' || github.ref == 'refs/heads/main') && 'production' || 'development' }}
-    # Segredos da aplicação vêm do SSM (infra/envs/*/ssm.tf). GitHub só precisa das chaves AWS.
+    env:
+      IS_PROD: ${{ github.base_ref == 'main' || github.ref == 'refs/heads/main' }}
 
     defaults:
       run:
@@ -33,8 +34,8 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
-          aws-access-key-id: ${{ (github.base_ref == 'main' || github.ref == 'refs/heads/main') && secrets.AWS_ACCESS_KEY_ID || secrets.AWS_ACCESS_KEY_ID_DEV }}
-          aws-secret-access-key: ${{ (github.base_ref == 'main' || github.ref == 'refs/heads/main') && secrets.AWS_SECRET_ACCESS_KEY || secrets.AWS_SECRET_ACCESS_KEY_DEV }}
+          aws-access-key-id: ${{ env.IS_PROD == 'true' && secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.IS_PROD == 'true' && secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
       - name: Setup Python
