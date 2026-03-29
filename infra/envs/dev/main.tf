@@ -1,7 +1,4 @@
-# Ambiente DEV: secrets com sufixo _DEV (deploy.yml usa estes quando branch = dev):
-# TF_VAR_SUPABASE_URL_DEV, TF_VAR_SUPABASE_KEY_DEV, TF_VAR_FIREBASE_PROJECT_ID_DEV, TF_VAR_FIREBASE_CLIENT_EMAIL_DEV,
-# TF_VAR_FIREBASE_PRIVATE_KEY_DEV, TF_VAR_FIREBASE_DATABASE_URL_DEV, AWS_ACCESS_KEY_ID_DEV, AWS_SECRET_ACCESS_KEY_DEV
-# MELHOR_ENVIO_TOKEN e CEP_ORIGEM são compartilhados (sem _DEV)
+# Ambiente DEV: secrets em SSM (prefixo /loja-omena/terraform/dev). AWS keys do GitHub = conta DEV.
 terraform {
   required_version = ">= 1.0.0"
 
@@ -108,15 +105,15 @@ module "payment_lambda" {
 
   environment_variables = {
     MP_ACCESS_TOKEN         = "TEST-3645506064282139-010508-daf199203ea82aa3e7ed6e2daf9e4edb-424720501"
-    SUPABASE_URL            = var.supabase_url            # → TF_VAR_SUPABASE_URL_DEV
-    SUPABASE_KEY            = var.supabase_key            # → TF_VAR_SUPABASE_KEY_DEV
-    MELHOR_ENVIO_TOKEN      = var.melhor_envio_token      # → MELHOR_ENVIO_TOKEN (compartilhado)
-    MELHOR_ENVIO_API_URL    = var.melhor_envio_api_url
-    CEP_ORIGEM              = var.cep_origem              # → CEP_ORIGEM (compartilhado)
-    FIREBASE_PROJECT_ID     = var.firebase_project_id     # → TF_VAR_FIREBASE_PROJECT_ID_DEV
-    FIREBASE_CLIENT_EMAIL   = var.firebase_client_email   # → TF_VAR_FIREBASE_CLIENT_EMAIL_DEV
-    FIREBASE_PRIVATE_KEY    = var.firebase_private_key    # → TF_VAR_FIREBASE_PRIVATE_KEY_DEV
-    FIREBASE_DATABASE_URL   = var.firebase_database_url   # → TF_VAR_FIREBASE_DATABASE_URL_DEV
+    SUPABASE_URL            = data.aws_ssm_parameter.app["supabase_url"].value
+    SUPABASE_KEY            = data.aws_ssm_parameter.app["supabase_key"].value
+    MELHOR_ENVIO_TOKEN      = data.aws_ssm_parameter.app["melhor_envio_token"].value
+    MELHOR_ENVIO_API_URL    = data.aws_ssm_parameter.app["melhor_envio_api_url"].value
+    CEP_ORIGEM              = data.aws_ssm_parameter.app["cep_origem"].value
+    FIREBASE_PROJECT_ID     = data.aws_ssm_parameter.app["firebase_project_id"].value
+    FIREBASE_CLIENT_EMAIL   = data.aws_ssm_parameter.app["firebase_client_email"].value
+    FIREBASE_PRIVATE_KEY    = data.aws_ssm_parameter.app["firebase_private_key"].value
+    FIREBASE_DATABASE_URL   = data.aws_ssm_parameter.app["firebase_database_url"].value
     POWERTOOLS_SERVICE_NAME = "payment"
   }
 
@@ -160,14 +157,14 @@ module "products_lambda" {
   ]
 
   environment_variables = {
-    SUPABASE_URL            = var.supabase_url            # → TF_VAR_SUPABASE_URL_DEV
-    SUPABASE_KEY            = var.supabase_key            # → TF_VAR_SUPABASE_KEY_DEV
-    FIREBASE_PROJECT_ID     = var.firebase_project_id     # → TF_VAR_FIREBASE_PROJECT_ID_DEV
-    FIREBASE_CLIENT_EMAIL   = var.firebase_client_email   # → TF_VAR_FIREBASE_CLIENT_EMAIL_DEV
-    FIREBASE_PRIVATE_KEY    = var.firebase_private_key    # → TF_VAR_FIREBASE_PRIVATE_KEY_DEV
-    FIREBASE_DATABASE_URL   = var.firebase_database_url   # → TF_VAR_FIREBASE_DATABASE_URL_DEV
-    MELHOR_ENVIO_TOKEN      = var.melhor_envio_token      # → MELHOR_ENVIO_TOKEN (compartilhado)
-    CEP_ORIGEM              = var.cep_origem              # → CEP_ORIGEM (compartilhado)
+    SUPABASE_URL            = data.aws_ssm_parameter.app["supabase_url"].value
+    SUPABASE_KEY            = data.aws_ssm_parameter.app["supabase_key"].value
+    FIREBASE_PROJECT_ID     = data.aws_ssm_parameter.app["firebase_project_id"].value
+    FIREBASE_CLIENT_EMAIL   = data.aws_ssm_parameter.app["firebase_client_email"].value
+    FIREBASE_PRIVATE_KEY    = data.aws_ssm_parameter.app["firebase_private_key"].value
+    FIREBASE_DATABASE_URL   = data.aws_ssm_parameter.app["firebase_database_url"].value
+    MELHOR_ENVIO_TOKEN      = data.aws_ssm_parameter.app["melhor_envio_token"].value
+    CEP_ORIGEM              = data.aws_ssm_parameter.app["cep_origem"].value
     POWERTOOLS_SERVICE_NAME = "products"
   }
 
@@ -219,8 +216,8 @@ module "profiles_lambda" {
   ]
 
   environment_variables = {
-    SUPABASE_URL            = var.supabase_url            # → TF_VAR_SUPABASE_URL_DEV
-    SUPABASE_KEY            = var.supabase_key            # → TF_VAR_SUPABASE_KEY_DEV
+    SUPABASE_URL            = data.aws_ssm_parameter.app["supabase_url"].value
+    SUPABASE_KEY            = data.aws_ssm_parameter.app["supabase_key"].value
     POWERTOOLS_SERVICE_NAME = "profiles"
   }
 
@@ -272,8 +269,8 @@ module "orders_lambda" {
   ]
 
   environment_variables = {
-    SUPABASE_URL            = var.supabase_url            # → TF_VAR_SUPABASE_URL_DEV
-    SUPABASE_KEY            = var.supabase_key            # → TF_VAR_SUPABASE_KEY_DEV
+    SUPABASE_URL            = data.aws_ssm_parameter.app["supabase_url"].value
+    SUPABASE_KEY            = data.aws_ssm_parameter.app["supabase_key"].value
     MP_ACCESS_TOKEN         = "TEST-3645506064282139-010508-daf199203ea82aa3e7ed6e2daf9e4edb-424720501"
     POWERTOOLS_SERVICE_NAME = "orders"
   }
@@ -326,9 +323,9 @@ module "shipping_lambda" {
   ]
 
   environment_variables = {
-    MELHOR_ENVIO_TOKEN      = var.melhor_envio_token      # → MELHOR_ENVIO_TOKEN (compartilhado)
-    MELHOR_ENVIO_API_URL    = var.melhor_envio_api_url
-    CEP_ORIGEM              = var.cep_origem              # → CEP_ORIGEM (compartilhado)
+    MELHOR_ENVIO_TOKEN      = data.aws_ssm_parameter.app["melhor_envio_token"].value
+    MELHOR_ENVIO_API_URL    = data.aws_ssm_parameter.app["melhor_envio_api_url"].value
+    CEP_ORIGEM              = data.aws_ssm_parameter.app["cep_origem"].value
     POWERTOOLS_SERVICE_NAME = "shipping"
   }
 
@@ -372,8 +369,8 @@ module "cleanup_orphan_images_lambda" {
   ]
 
   environment_variables = {
-    SUPABASE_URL            = var.supabase_url
-    SUPABASE_KEY            = var.supabase_key
+    SUPABASE_URL            = data.aws_ssm_parameter.app["supabase_url"].value
+    SUPABASE_KEY            = data.aws_ssm_parameter.app["supabase_key"].value
     POWERTOOLS_SERVICE_NAME = "cleanup-orphan-images"
   }
 
