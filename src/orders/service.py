@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 import requests
+from aws_lambda_powertools import Logger
 
 from repository import OrderRepository
 from schemas import BackofficeCancelInput, CancelRequestInput
@@ -15,6 +16,8 @@ from schemas import BackofficeCancelInput, CancelRequestInput
 
 ORDER_COMPLETED_STATUSES = ("approved", "completed")
 CUSTOMER_CANCEL_DAYS = 7
+
+logger = Logger(service="orders")
 
 
 def _attach_items_to_orders(repo: OrderRepository, orders: list[dict[str, Any]]) -> None:
@@ -72,6 +75,11 @@ class OrderService:
         """List all orders; only allowed when requester has role 'admin'. Each order includes items."""
         role = self.repo.get_profile_role(admin_user_id)
         if role != "admin":
+            logger.warning(
+                "Backoffice listagem de pedidos negada",
+                admin_user_id=admin_user_id,
+                role_resolved=role,
+            )
             raise PermissionError("Apenas usuários com role admin podem listar todos os pedidos")
         result = self.repo.list_all_orders(page=page, limit=limit)
         _attach_items_to_orders(self.repo, result["data"])

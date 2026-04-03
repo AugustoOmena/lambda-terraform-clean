@@ -6,6 +6,7 @@
 
 locals {
   ssm_prefix = "/loja-omena/terraform/prod"
+  # supabase_key = chave service_role (Settings → API), não a anon/public — senão RLS bloqueia profiles.
   ssm_keys = [
     "supabase_url",
     "supabase_key",

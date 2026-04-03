@@ -3,6 +3,7 @@
 
 locals {
   ssm_prefix = "/loja-omena/terraform/dev"
+  # supabase_key = chave service_role (Settings → API), não a anon/public.
   ssm_keys = [
     "supabase_url",
     "supabase_key",

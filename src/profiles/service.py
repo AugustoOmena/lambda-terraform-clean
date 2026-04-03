@@ -1,3 +1,5 @@
+from shared.supabase_utils import normalize_profile_role
+
 from repository import ProfileRepository
 from schemas import ProfileFilter, ProfileUpdate, ProfileDelete
 
@@ -59,7 +61,7 @@ class ProfileService:
         if current_user_id and payload.id == current_user_id:
             # Verifica se o perfil atual é admin
             current_profile = self.repo.get_by_id(current_user_id)
-            if current_profile and current_profile.get("role") == "admin":
+            if current_profile and normalize_profile_role(current_profile.get("role")) == "admin":
                 raise Exception("Administradores não podem deletar seu próprio perfil")
         
         # Executa remoção

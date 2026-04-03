@@ -3,6 +3,7 @@
 from datetime import datetime, timezone
 from typing import Any, Optional
 from shared.database import get_supabase_client
+from shared.supabase_utils import normalize_profile_role
 
 
 class OrderRepository:
@@ -73,8 +74,10 @@ class OrderRepository:
 
     def get_profile_role(self, user_id: str) -> Optional[str]:
         """Fetch profile role by user_id (for admin check)."""
-        res = self.db.table("profiles").select("role").eq("id", user_id).execute()
-        return res.data[0].get("role") if res.data else None
+        res = self.db.table("profiles").select("role").eq("id", user_id).limit(1).execute()
+        if not res.data:
+            return None
+        return normalize_profile_role(res.data[0].get("role"))
 
     def get_profile_email(self, user_id: str) -> Optional[str]:
         """Fetch profile email by user_id (for order payload)."""
