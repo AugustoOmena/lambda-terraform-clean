@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 from typing import Any, Optional
 from shared.database import get_supabase_client
-from shared.supabase_utils import normalize_profile_role
+from shared.supabase_utils import normalize_profile_role, role_from_auth_user_obj
 
 
 class OrderRepository:
@@ -73,11 +73,25 @@ class OrderRepository:
         return {"data": data, "count": res.count or 0}
 
     def get_profile_role(self, user_id: str) -> Optional[str]:
-        """Fetch profile role by user_id (for admin check)."""
+        """Fetch profile role by user_id (for admin check).
+
+        Tries ``public.profiles`` first, then Supabase Auth (app_metadata/user_metadata.role)
+        when a linha não existe (ex.: perfil só em auth.users).
+        """
         res = self.db.table("profiles").select("role").eq("id", user_id).limit(1).execute()
-        if not res.data:
-            return None
-        return normalize_profile_role(res.data[0].get("role"))
+        if res.data:
+            return normalize_profile_role(res.data[0].get("role"))
+        try:
+            auth_res = self.db.auth.admin.get_user_by_id(user_id)
+            user = getattr(auth_res, "user", None) if auth_res is not None else None
+            if user is None and isinstance(auth_res, dict):
+                user = auth_res.get("user")
+            role = role_from_auth_user_obj(user)
+            if role is not None:
+                return role
+        except Exception:
+            pass
+        return None
 
     def get_profile_email(self, user_id: str) -> Optional[str]:
         """Fetch profile email by user_id (for order payload)."""

@@ -1,7 +1,12 @@
 import os
+
+from aws_lambda_powertools import Logger
 from supabase import create_client, Client
 
+from shared.supabase_utils import jwt_role_from_supabase_key
+
 _client: Client = None
+_logger = Logger(service="supabase-client")
 
 
 def get_supabase_client() -> Client:
@@ -18,5 +23,10 @@ def get_supabase_client() -> Client:
         key = os.environ.get("SUPABASE_KEY")
         if not url or not key:
             raise ValueError("Configurações do Supabase ausentes (ENV VARS)")
+        role_hint = jwt_role_from_supabase_key(key)
+        if role_hint == "anon":
+            _logger.warning(
+                "SUPABASE_KEY JWT indica role anon; o backoffice precisa da chave service_role (Settings → API)."
+            )
         _client = create_client(url, key)
     return _client
