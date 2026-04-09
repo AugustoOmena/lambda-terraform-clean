@@ -14,6 +14,7 @@ from aws_lambda_powertools.utilities.parser import parse
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
 from shared.responses import http_response
+from shared.supabase_utils import get_authorization_header
 from schemas import BackofficeCancelInput, CancelRequestInput, OrderStatusUpdate
 from service import OrderService
 
@@ -50,7 +51,12 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
             )
             if is_backoffice and user_id:
                 try:
-                    result = service.list_all_orders_for_admin(user_id, page=page, limit=limit)
+                    result = service.list_all_orders_for_admin(
+                        user_id,
+                        page=page,
+                        limit=limit,
+                        authorization_header=get_authorization_header(event),
+                    )
                 except PermissionError as e:
                     return http_response(403, {"error": str(e)})
                 return http_response(200, result)

@@ -68,9 +68,15 @@ class OrderService:
             o["user_email"] = user_email
         return result
 
-    def list_all_orders_for_admin(self, admin_user_id: str, page: int = 1, limit: int = 20) -> dict[str, Any]:
+    def list_all_orders_for_admin(
+        self,
+        admin_user_id: str,
+        page: int = 1,
+        limit: int = 20,
+        authorization_header: Optional[str] = None,
+    ) -> dict[str, Any]:
         """List all orders; only allowed when requester has role 'admin'. Each order includes items."""
-        role = self.repo.get_profile_role(admin_user_id)
+        role = self.repo.get_profile_role(admin_user_id, authorization_header=authorization_header)
         if role != "admin":
             raise PermissionError("Apenas usuários com role admin podem listar todos os pedidos")
         result = self.repo.list_all_orders(page=page, limit=limit)

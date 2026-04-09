@@ -1,8 +1,14 @@
 """Repository for orders, order_items, vouchers and order_refunds."""
 
+import os
 from datetime import datetime, timezone
 from typing import Any, Optional
+
 from shared.database import get_supabase_client
+from shared.supabase_utils import (
+    fetch_profile_role_via_rest_with_user_jwt,
+    normalize_profile_role,
+)
 
 
 class OrderRepository:
@@ -71,10 +77,27 @@ class OrderRepository:
                     o["user_email"] = None
         return {"data": data, "count": res.count or 0}
 
-    def get_profile_role(self, user_id: str) -> Optional[str]:
-        """Fetch profile role by user_id (for admin check)."""
-        res = self.db.table("profiles").select("role").eq("id", user_id).execute()
-        return res.data[0].get("role") if res.data else None
+    def get_profile_role(
+        self, user_id: str, authorization_header: Optional[str] = None
+    ) -> Optional[str]:
+        """Fetch profile role by user_id (for admin check).
+
+        Com SUPABASE_KEY anon (sem JWT do usuário), o RLS não devolve linha. Se o front
+        enviar ``Authorization: Bearer <sessão>`` e existir ``SUPABASE_ANON_KEY`` no env,
+        repete a mesma leitura REST que o front usa no Supabase.
+        """
+        res = self.db.table("profiles").select("role").eq("id", user_id).limit(1).execute()
+        if res.data:
+            return normalize_profile_role(res.data[0].get("role"))
+        anon_key = os.environ.get("SUPABASE_ANON_KEY")
+        url = os.environ.get("SUPABASE_URL")
+        if url and anon_key and authorization_header:
+            role = fetch_profile_role_via_rest_with_user_jwt(
+                url, anon_key, authorization_header, user_id
+            )
+            if role is not None:
+                return role
+        return None
 
     def get_profile_email(self, user_id: str) -> Optional[str]:
         """Fetch profile email by user_id (for order payload)."""
