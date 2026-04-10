@@ -4,6 +4,8 @@ import os
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+import requests
+
 from shared.database import get_supabase_client
 from shared.supabase_utils import (
     fetch_profile_role_via_rest_with_user_jwt,
@@ -51,7 +53,12 @@ class OrderRepository:
         )
         return {"data": res.data or [], "count": res.count or 0}
 
-    def list_all_orders(self, page: int = 1, limit: int = 20) -> dict[str, Any]:
+    def list_all_orders(
+        self,
+        page: int = 1,
+        limit: int = 20,
+        authorization_header: Optional[str] = None,
+    ) -> dict[str, Any]:
         """List all orders (backoffice admin). Same simplified fields + user_id + user email."""
         start = (page - 1) * limit
         end = start + limit - 1
@@ -75,6 +82,11 @@ class OrderRepository:
             else:
                 for o in data:
                     o["user_email"] = None
+        if data:
+            return {"data": data, "count": res.count or 0}
+        rest_result = self._list_all_orders_via_rest(page, limit, authorization_header)
+        if rest_result is not None:
+            return rest_result
         return {"data": data, "count": res.count or 0}
 
     def get_profile_role(
@@ -132,7 +144,11 @@ class OrderRepository:
         res = self.db.table("order_items").select("*").eq("order_id", order_id).execute()
         return res.data or []
 
-    def get_order_items_for_order_ids(self, order_ids: list[str]) -> list[dict[str, Any]]:
+    def get_order_items_for_order_ids(
+        self,
+        order_ids: list[str],
+        authorization_header: Optional[str] = None,
+    ) -> list[dict[str, Any]]:
         """Fetch all order_items for multiple orders (for list responses)."""
         if not order_ids:
             return []
@@ -142,7 +158,11 @@ class OrderRepository:
             .in_("order_id", order_ids)
             .execute()
         )
-        return res.data or []
+        data = res.data or []
+        if data:
+            return data
+        rest_data = self._get_order_items_for_order_ids_via_rest(order_ids, authorization_header)
+        return rest_data if rest_data is not None else data
 
     def insert_refund_request(
         self,
@@ -219,3 +239,113 @@ class OrderRepository:
         """List refund requests for an order."""
         res = self.db.table("order_refunds").select("*").eq("order_id", order_id).order("created_at", desc=True).execute()
         return res.data or []
+
+    def _rest_headers(self, authorization_header: Optional[str] = None) -> Optional[dict[str, str]]:
+        api_key = (
+            os.environ.get("SUPABASE_ANON_KEY")
+            or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+            or os.environ.get("SUPABASE_KEY")
+        )
+        if not api_key:
+            return None
+        auth = (authorization_header or "").strip()
+        if auth and not auth.lower().startswith("bearer "):
+            auth = ""
+        return {
+            "apikey": api_key,
+            "Authorization": auth or f"Bearer {api_key}",
+        }
+
+    def _list_all_orders_via_rest(
+        self,
+        page: int,
+        limit: int,
+        authorization_header: Optional[str] = None,
+    ) -> Optional[dict[str, Any]]:
+        url = os.environ.get("SUPABASE_URL")
+        headers = self._rest_headers(authorization_header)
+        if not url or not headers:
+            return None
+        start = (page - 1) * limit
+        try:
+            orders_res = requests.get(
+                f"{url.rstrip('/')}/rest/v1/orders",
+                params={
+                    "select": "id,user_id,status,total_amount,created_at,payment_method,payment_id,payer,payment_code,payment_url,payment_expiration",
+                    "order": "created_at.desc",
+                    "limit": limit,
+                    "offset": start,
+                },
+                headers={**headers, "Prefer": "count=exact"},
+                timeout=15,
+            )
+            if orders_res.status_code != 200:
+                return None
+            data = orders_res.json() or []
+            total = 0
+            content_range = orders_res.headers.get("Content-Range", "")
+            if "/" in content_range:
+                try:
+                    total = int(content_range.split("/")[-1])
+                except ValueError:
+                    total = 0
+            self._attach_user_emails_via_rest(data, headers, url)
+            return {"data": data, "count": total}
+        except Exception:
+            return None
+
+    def _attach_user_emails_via_rest(
+        self,
+        orders: list[dict[str, Any]],
+        headers: dict[str, str],
+        url: str,
+    ) -> None:
+        if not orders:
+            return
+        user_ids = sorted({o["user_id"] for o in orders if o.get("user_id")})
+        if not user_ids:
+            for order in orders:
+                order["user_email"] = None
+            return
+        try:
+            profiles_res = requests.get(
+                f"{url.rstrip('/')}/rest/v1/profiles",
+                params={
+                    "select": "id,email",
+                    "id": f"in.({','.join(user_ids)})",
+                },
+                headers=headers,
+                timeout=15,
+            )
+            if profiles_res.status_code != 200:
+                return
+            id_to_email = {p["id"]: p.get("email") for p in (profiles_res.json() or [])}
+            for order in orders:
+                order["user_email"] = id_to_email.get(order.get("user_id")) if order.get("user_id") else None
+        except Exception:
+            return
+
+    def _get_order_items_for_order_ids_via_rest(
+        self,
+        order_ids: list[str],
+        authorization_header: Optional[str] = None,
+    ) -> Optional[list[dict[str, Any]]]:
+        url = os.environ.get("SUPABASE_URL")
+        headers = self._rest_headers(authorization_header)
+        if not url or not headers or not order_ids:
+            return None
+        try:
+            res = requests.get(
+                f"{url.rstrip('/')}/rest/v1/order_items",
+                params={
+                    "select": "*",
+                    "order_id": f"in.({','.join(order_ids)})",
+                },
+                headers=headers,
+                timeout=15,
+            )
+            if res.status_code != 200:
+                return None
+            return res.json() or []
+        except Exception:
+            return None

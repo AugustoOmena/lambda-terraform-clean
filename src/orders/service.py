@@ -17,12 +17,16 @@ ORDER_COMPLETED_STATUSES = ("approved", "completed")
 CUSTOMER_CANCEL_DAYS = 7
 
 
-def _attach_items_to_orders(repo: OrderRepository, orders: list[dict[str, Any]]) -> None:
+def _attach_items_to_orders(
+    repo: OrderRepository,
+    orders: list[dict[str, Any]],
+    authorization_header: Optional[str] = None,
+) -> None:
     """Attach order_items to each order in list (mutates orders in place)."""
     if not orders:
         return
     order_ids = [o["id"] for o in orders]
-    all_items = repo.get_order_items_for_order_ids(order_ids)
+    all_items = repo.get_order_items_for_order_ids(order_ids, authorization_header=authorization_header)
     by_order: dict[str, list] = {}
     for item in all_items:
         oid = item.get("order_id")
@@ -79,8 +83,8 @@ class OrderService:
         role = self.repo.get_profile_role(admin_user_id, authorization_header=authorization_header)
         if role != "admin":
             raise PermissionError("Apenas usuários com role admin podem listar todos os pedidos")
-        result = self.repo.list_all_orders(page=page, limit=limit)
-        _attach_items_to_orders(self.repo, result["data"])
+        result = self.repo.list_all_orders(page=page, limit=limit, authorization_header=authorization_header)
+        _attach_items_to_orders(self.repo, result["data"], authorization_header=authorization_header)
         return result
 
     def update_order_status(self, order_id: str, status: str) -> dict[str, Any]:

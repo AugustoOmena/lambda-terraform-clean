@@ -12,7 +12,7 @@ class ProfileRepository:
     def __init__(self):
         self.db = get_supabase_client()
     
-    def list_all(self, filters: ProfileFilter) -> dict:
+    def list_all(self, filters: ProfileFilter, authorization_header: str | None = None) -> dict:
         """
         Lista perfis com filtros, paginação e ordenação.
         
@@ -57,7 +57,7 @@ class ProfileRepository:
 
         # Fallback para ambientes com key anon + RLS bloqueando listagem de perfis.
         # Usa service role quando disponível para garantir resposta no backoffice.
-        rest_result = self._list_all_via_rest(filters)
+        rest_result = self._list_all_via_rest(filters, authorization_header=authorization_header)
         if rest_result is not None:
             return rest_result
 
@@ -66,11 +66,20 @@ class ProfileRepository:
             "count": count,  # Total de registros (sem paginação)
         }
 
-    def _list_all_via_rest(self, filters: ProfileFilter) -> dict | None:
+    def _list_all_via_rest(
+        self, filters: ProfileFilter, authorization_header: str | None = None
+    ) -> dict | None:
         url = os.environ.get("SUPABASE_URL")
-        api_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_KEY")
+        api_key = (
+            os.environ.get("SUPABASE_ANON_KEY")
+            or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+            or os.environ.get("SUPABASE_KEY")
+        )
         if not url or not api_key:
             return None
+        auth = (authorization_header or "").strip()
+        if auth and not auth.lower().startswith("bearer "):
+            auth = ""
 
         sort_mapping = {
             "newest": ("created_at", True),  # desc
@@ -97,7 +106,7 @@ class ProfileRepository:
                 params=params,
                 headers={
                     "apikey": api_key,
-                    "Authorization": f"Bearer {api_key}",
+                    "Authorization": auth or f"Bearer {api_key}",
                     "Prefer": "count=exact",
                 },
                 timeout=15,

@@ -19,22 +19,59 @@ ALTER TABLE vouchers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_refunds ENABLE ROW LEVEL SECURITY;
 ALTER TABLE product_variants ENABLE ROW LEVEL SECURITY;
 
+-- 2b. HELPER: consulta role admin sem recursão de RLS na própria tabela profiles.
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+    SELECT EXISTS (
+        SELECT 1
+        FROM public.profiles
+        WHERE id = auth.uid()
+          AND lower(coalesce(role, '')) = 'admin'
+    );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.is_admin() TO anon, authenticated, service_role;
+
 -- 3. PROFILES: Usuário vê/edita o seu; Backend total.
 CREATE POLICY "Users can view own profile" ON profiles FOR SELECT USING (auth.uid() = id);
 CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Admins can view all profiles" ON profiles FOR SELECT USING (public.is_admin());
+CREATE POLICY "Admins can update all profiles"
+ON profiles FOR UPDATE
+USING (public.is_admin())
+WITH CHECK (public.is_admin());
+CREATE POLICY "Admins can delete profiles" ON profiles FOR DELETE USING (public.is_admin());
 CREATE POLICY "Service Role Full Access Profiles" ON profiles FOR ALL USING (auth.role() = 'service_role');
 
 -- 4. PRODUCTS: Público lê; Backend gerencia.
 CREATE POLICY "Public Read Access" ON products FOR SELECT USING (true);
+CREATE POLICY "Admins can manage products"
+ON products FOR ALL
+USING (public.is_admin())
+WITH CHECK (public.is_admin());
 CREATE POLICY "Service Role Full Access Products" ON products FOR ALL USING (auth.role() = 'service_role');
 
 -- 4b. PRODUCT_VARIANTS: mesmo regime que products (público lê; backend gerencia).
 CREATE POLICY "Public Read Access Product Variants" ON product_variants FOR SELECT USING (true);
+CREATE POLICY "Admins can manage product variants"
+ON product_variants FOR ALL
+USING (public.is_admin())
+WITH CHECK (public.is_admin());
 CREATE POLICY "Service Role Full Access Product Variants" ON product_variants FOR ALL USING (auth.role() = 'service_role');
 
 -- 5. ORDERS: Usuário vê/cria o seu; Backend total.
 CREATE POLICY "Users can view own orders" ON orders FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can create own orders" ON orders FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Admins can view all orders" ON orders FOR SELECT USING (public.is_admin());
+CREATE POLICY "Admins can update all orders"
+ON orders FOR UPDATE
+USING (public.is_admin())
+WITH CHECK (public.is_admin());
 CREATE POLICY "Service Role Full Access Orders" ON orders FOR ALL USING (auth.role() = 'service_role');
 
 -- 6. ORDER_ITEMS: Acesso via vínculo com o pedido.
@@ -44,9 +81,14 @@ CREATE POLICY "Users can view own order items" ON order_items FOR SELECT USING (
 CREATE POLICY "Users can insert own order items" ON order_items FOR INSERT WITH CHECK (
     order_id IN (SELECT id FROM orders WHERE user_id = auth.uid())
 );
+CREATE POLICY "Admins can view all order items" ON order_items FOR SELECT USING (public.is_admin());
 CREATE POLICY "Service Role Full Access Order Items" ON order_items FOR ALL USING (auth.role() = 'service_role');
 
 -- 7. VOUCHERS: Apenas backend; cliente vê via pedido quando recebe voucher.
+CREATE POLICY "Admins can manage vouchers"
+ON vouchers FOR ALL
+USING (public.is_admin())
+WITH CHECK (public.is_admin());
 CREATE POLICY "Service Role Full Access Vouchers" ON vouchers FOR ALL USING (auth.role() = 'service_role');
 
 -- 8. ORDER_REFUNDS: Cliente cria/vê suas solicitações; Backend total.
@@ -56,6 +98,10 @@ CREATE POLICY "Users can view own order refunds" ON order_refunds FOR SELECT USI
 CREATE POLICY "Users can create own order refund requests" ON order_refunds FOR INSERT WITH CHECK (
     order_id IN (SELECT id FROM orders WHERE user_id = auth.uid())
 );
+CREATE POLICY "Admins can manage order refunds"
+ON order_refunds FOR ALL
+USING (public.is_admin())
+WITH CHECK (public.is_admin());
 CREATE POLICY "Service Role Full Access Order Refunds" ON order_refunds FOR ALL USING (auth.role() = 'service_role');
 
 -- STORAGE product-images: leitura pública (imagens de catálogo); upload via authenticated/service_role

@@ -2,6 +2,7 @@ from aws_lambda_powertools import Logger
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
 from shared.responses import http_response
+from shared.supabase_utils import get_authorization_header
 from schemas import ProfileFilter, ProfileUpdate, ProfileDelete
 from service import ProfileService
 
@@ -44,7 +45,9 @@ def lambda_handler(event: dict, context: LambdaContext):
             
             logger.info(f"Listando perfis: page={filters.page}, limit={filters.limit}")
             
-            result = service.list_profiles(filters)
+            result = service.list_profiles(
+                filters, authorization_header=get_authorization_header(event)
+            )
             return http_response(200, result)
         
         # PUT: Atualização de perfil
