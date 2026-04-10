@@ -86,14 +86,24 @@ class OrderRepository:
         enviar ``Authorization: Bearer <sessão>`` e existir ``SUPABASE_ANON_KEY`` no env,
         repete a mesma leitura REST que o front usa no Supabase.
         """
-        res = self.db.table("profiles").select("role").eq("id", user_id).limit(1).execute()
+        normalized_user_id = (user_id or "").strip()
+        if not normalized_user_id:
+            return None
+        res = (
+            self.db.table("profiles")
+            .select("role")
+            .eq("id", normalized_user_id)
+            .limit(1)
+            .execute()
+        )
         if res.data:
             return normalize_profile_role(res.data[0].get("role"))
-        anon_key = os.environ.get("SUPABASE_ANON_KEY")
+        # Fallback REST: prefer SUPABASE_ANON_KEY, but accept SUPABASE_KEY when it's anon.
+        anon_key = os.environ.get("SUPABASE_ANON_KEY") or os.environ.get("SUPABASE_KEY")
         url = os.environ.get("SUPABASE_URL")
         if url and anon_key and authorization_header:
             role = fetch_profile_role_via_rest_with_user_jwt(
-                url, anon_key, authorization_header, user_id
+                url, anon_key, authorization_header, normalized_user_id
             )
             if role is not None:
                 return role
