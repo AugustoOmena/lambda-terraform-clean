@@ -6,7 +6,6 @@ locals {
   ssm_keys = [
     "supabase_url",
     "supabase_key",
-    "supabase_service_role_key",
     "supabase_anon_key",
     "firebase_project_id",
     "firebase_client_email",

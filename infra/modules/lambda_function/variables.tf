@@ -22,3 +22,9 @@ variable "memory_size" {
   type        = number
   default     = 128
 }
+
+variable "ssm_app_secrets_prefix" {
+  description = "Prefixo SSM (ex: /loja-omena/terraform/prod) para ssm:GetParameter em {prefix}/* — reduz env > 4KB. Vazio = desligado."
+  type        = string
+  default     = ""
+}

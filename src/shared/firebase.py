@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 
 import firebase_admin
 from firebase_admin import credentials, db
@@ -10,6 +10,33 @@ from aws_lambda_powertools import Logger
 logger = Logger(service="firebase")
 
 _firebase_db = None
+
+
+def _firebase_config_from_ssm() -> Optional[Tuple[str, str, str, str]]:
+    """
+    When SSM_APP_SECRETS_PREFIX is set (e.g. /loja-omena/terraform/prod), load
+    firebase_* values from Parameter Store so Lambda env stays under 4KB.
+    """
+    prefix = (os.environ.get("SSM_APP_SECRETS_PREFIX") or "").strip().rstrip("/")
+    if not prefix:
+        return None
+    if not prefix.startswith("/"):
+        prefix = f"/{prefix}"
+    import boto3
+
+    client = boto3.client("ssm")
+
+    def get_param(suffix: str) -> str:
+        name = f"{prefix}/{suffix}"
+        r = client.get_parameter(Name=name, WithDecryption=True)
+        return r["Parameter"]["Value"]
+
+    return (
+        get_param("firebase_project_id"),
+        get_param("firebase_client_email"),
+        get_param("firebase_private_key"),
+        get_param("firebase_database_url"),
+    )
 
 
 def get_firebase_db():
@@ -30,13 +57,20 @@ def get_firebase_db():
         firebase_admin.get_app()
         logger.info("Firebase Admin SDK already initialized (reusing existing app)")
     except ValueError:
-        project_id = os.environ.get("FIREBASE_PROJECT_ID")
-        client_email = os.environ.get("FIREBASE_CLIENT_EMAIL")
-        private_key = os.environ.get("FIREBASE_PRIVATE_KEY")
-        database_url = os.environ.get("FIREBASE_DATABASE_URL")
-        
+        from_ssm = _firebase_config_from_ssm()
+        if from_ssm:
+            project_id, client_email, private_key, database_url = from_ssm
+        else:
+            project_id = os.environ.get("FIREBASE_PROJECT_ID")
+            client_email = os.environ.get("FIREBASE_CLIENT_EMAIL")
+            private_key = os.environ.get("FIREBASE_PRIVATE_KEY")
+            database_url = os.environ.get("FIREBASE_DATABASE_URL")
+
         if not all([project_id, client_email, private_key, database_url]):
-            raise ValueError("Firebase credentials missing (ENV VARS)")
+            raise ValueError(
+                "Firebase credentials missing: set SSM_APP_SECRETS_PREFIX or "
+                "FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY, FIREBASE_DATABASE_URL"
+            )
         
         private_key = private_key.replace('\\n', '\n')
         

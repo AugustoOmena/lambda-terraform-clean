@@ -102,17 +102,16 @@ module "payment_lambda" {
     aws_lambda_layer_version.shared_code.arn
   ]
 
+  ssm_app_secrets_prefix = local.ssm_prefix
+
   environment_variables = {
     MP_ACCESS_TOKEN         = "TEST-3645506064282139-010508-daf199203ea82aa3e7ed6e2daf9e4edb-424720501"
     SUPABASE_URL            = data.aws_ssm_parameter.app["supabase_url"].value
-    SUPABASE_SERVICE_ROLE_KEY = data.aws_ssm_parameter.app["supabase_service_role_key"].value
+    SUPABASE_KEY            = data.aws_ssm_parameter.app["supabase_key"].value
     MELHOR_ENVIO_TOKEN      = data.aws_ssm_parameter.app["melhor_envio_token"].value
     MELHOR_ENVIO_API_URL    = data.aws_ssm_parameter.app["melhor_envio_api_url"].value
     CEP_ORIGEM              = data.aws_ssm_parameter.app["cep_origem"].value
-    FIREBASE_PROJECT_ID     = data.aws_ssm_parameter.app["firebase_project_id"].value
-    FIREBASE_CLIENT_EMAIL   = data.aws_ssm_parameter.app["firebase_client_email"].value
-    FIREBASE_PRIVATE_KEY    = data.aws_ssm_parameter.app["firebase_private_key"].value
-    FIREBASE_DATABASE_URL   = data.aws_ssm_parameter.app["firebase_database_url"].value
+    SSM_APP_SECRETS_PREFIX  = local.ssm_prefix
     POWERTOOLS_SERVICE_NAME = "payment"
   }
 
@@ -155,15 +154,14 @@ module "products_lambda" {
     aws_lambda_layer_version.shared_code.arn
   ]
 
+  ssm_app_secrets_prefix = local.ssm_prefix
+
   environment_variables = {
     SUPABASE_URL            = data.aws_ssm_parameter.app["supabase_url"].value
-    SUPABASE_SERVICE_ROLE_KEY = data.aws_ssm_parameter.app["supabase_service_role_key"].value
-    FIREBASE_PROJECT_ID     = data.aws_ssm_parameter.app["firebase_project_id"].value
-    FIREBASE_CLIENT_EMAIL   = data.aws_ssm_parameter.app["firebase_client_email"].value
-    FIREBASE_PRIVATE_KEY    = data.aws_ssm_parameter.app["firebase_private_key"].value
-    FIREBASE_DATABASE_URL   = data.aws_ssm_parameter.app["firebase_database_url"].value
+    SUPABASE_KEY            = data.aws_ssm_parameter.app["supabase_key"].value
     MELHOR_ENVIO_TOKEN      = data.aws_ssm_parameter.app["melhor_envio_token"].value
-    CEP_ORIGEM               = data.aws_ssm_parameter.app["cep_origem"].value
+    CEP_ORIGEM              = data.aws_ssm_parameter.app["cep_origem"].value
+    SSM_APP_SECRETS_PREFIX  = local.ssm_prefix
     POWERTOOLS_SERVICE_NAME = "products"
   }
 
@@ -216,7 +214,7 @@ module "profiles_lambda" {
 
   environment_variables = {
     SUPABASE_URL            = data.aws_ssm_parameter.app["supabase_url"].value
-    SUPABASE_SERVICE_ROLE_KEY = data.aws_ssm_parameter.app["supabase_service_role_key"].value
+    SUPABASE_KEY            = data.aws_ssm_parameter.app["supabase_key"].value
     POWERTOOLS_SERVICE_NAME = "profiles"
   }
 
@@ -269,7 +267,7 @@ module "orders_lambda" {
 
   environment_variables = {
     SUPABASE_URL            = data.aws_ssm_parameter.app["supabase_url"].value
-    SUPABASE_SERVICE_ROLE_KEY = data.aws_ssm_parameter.app["supabase_service_role_key"].value
+    SUPABASE_KEY            = data.aws_ssm_parameter.app["supabase_key"].value
     SUPABASE_ANON_KEY       = data.aws_ssm_parameter.app["supabase_anon_key"].value
     MP_ACCESS_TOKEN         = "TEST-3645506064282139-010508-daf199203ea82aa3e7ed6e2daf9e4edb-424720501"
     POWERTOOLS_SERVICE_NAME = "orders"
@@ -370,7 +368,7 @@ module "cleanup_orphan_images_lambda" {
 
   environment_variables = {
     SUPABASE_URL            = data.aws_ssm_parameter.app["supabase_url"].value
-    SUPABASE_SERVICE_ROLE_KEY = data.aws_ssm_parameter.app["supabase_service_role_key"].value
+    SUPABASE_KEY            = data.aws_ssm_parameter.app["supabase_key"].value
     POWERTOOLS_SERVICE_NAME = "cleanup-orphan-images"
   }
 
