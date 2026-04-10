@@ -28,12 +28,11 @@ def lambda_handler(event: dict, context: LambdaContext):
     
     try:
         service = ProfileService()
+        query_params = event.get("queryStringParameters") or {}
+        admin_user_id = query_params.get("user_id")
         
         # GET: Listagem com filtros
         if method == "GET":
-            # Extrai query parameters
-            query_params = event.get("queryStringParameters") or {}
-            
             # Valida e converte para ProfileFilter
             filters = ProfileFilter(
                 page=int(query_params.get("page", 1)),
@@ -46,7 +45,9 @@ def lambda_handler(event: dict, context: LambdaContext):
             logger.info(f"Listando perfis: page={filters.page}, limit={filters.limit}")
             
             result = service.list_profiles(
-                filters, authorization_header=get_authorization_header(event)
+                filters,
+                authorization_header=get_authorization_header(event),
+                admin_user_id=admin_user_id,
             )
             return http_response(200, result)
         

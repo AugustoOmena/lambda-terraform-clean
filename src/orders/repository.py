@@ -55,11 +55,15 @@ class OrderRepository:
 
     def list_all_orders(
         self,
+        admin_user_id: str,
         page: int = 1,
         limit: int = 20,
         authorization_header: Optional[str] = None,
     ) -> dict[str, Any]:
         """List all orders (backoffice admin). Same simplified fields + user_id + user email."""
+        rpc_result = self._list_all_orders_via_rpc(admin_user_id, page, limit)
+        if rpc_result is not None:
+            return rpc_result
         start = (page - 1) * limit
         end = start + limit - 1
         res = (
@@ -290,6 +294,32 @@ class OrderRepository:
                 except ValueError:
                     total = 0
             self._attach_user_emails_via_rest(data, headers, url)
+            return {"data": data, "count": total}
+        except Exception:
+            return None
+
+    def _list_all_orders_via_rpc(
+        self,
+        admin_user_id: str,
+        page: int,
+        limit: int,
+    ) -> Optional[dict[str, Any]]:
+        try:
+            response = self.db.rpc(
+                "backoffice_list_orders",
+                {
+                    "p_admin_user_id": admin_user_id,
+                    "p_page": page,
+                    "p_limit": limit,
+                },
+            )
+            rows = response.data or []
+            total = int(rows[0]["total_count"]) if rows else 0
+            data = []
+            for row in rows:
+                item = dict(row)
+                item.pop("total_count", None)
+                data.append(item)
             return {"data": data, "count": total}
         except Exception:
             return None

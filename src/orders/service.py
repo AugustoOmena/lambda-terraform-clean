@@ -83,7 +83,12 @@ class OrderService:
         role = self.repo.get_profile_role(admin_user_id, authorization_header=authorization_header)
         if role != "admin":
             raise PermissionError("Apenas usuários com role admin podem listar todos os pedidos")
-        result = self.repo.list_all_orders(page=page, limit=limit, authorization_header=authorization_header)
+        result = self.repo.list_all_orders(
+            admin_user_id,
+            page=page,
+            limit=limit,
+            authorization_header=authorization_header,
+        )
         _attach_items_to_orders(self.repo, result["data"], authorization_header=authorization_header)
         return result
 

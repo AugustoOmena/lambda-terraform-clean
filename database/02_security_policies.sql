@@ -37,6 +37,144 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.is_admin() TO anon, authenticated, service_role;
 
+CREATE OR REPLACE FUNCTION public.backoffice_list_profiles(
+    p_admin_user_id uuid,
+    p_page integer DEFAULT 1,
+    p_limit integer DEFAULT 10,
+    p_email text DEFAULT NULL,
+    p_role text DEFAULT NULL,
+    p_sort text DEFAULT 'newest'
+)
+RETURNS TABLE (
+    id uuid,
+    email text,
+    role text,
+    created_at timestamptz,
+    total_count bigint
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_offset integer := GREATEST((COALESCE(p_page, 1) - 1) * COALESCE(p_limit, 10), 0);
+    v_limit integer := GREATEST(COALESCE(p_limit, 10), 1);
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM public.profiles
+        WHERE profiles.id = p_admin_user_id
+          AND lower(coalesce(profiles.role, '')) = 'admin'
+    ) THEN
+        RAISE EXCEPTION 'Apenas usuários com role admin podem listar usuários';
+    END IF;
+
+    RETURN QUERY
+    WITH filtered AS (
+        SELECT p.id, p.email, p.role, p.created_at
+        FROM public.profiles p
+        WHERE (p_email IS NULL OR coalesce(p.email, '') ILIKE '%' || p_email || '%')
+          AND (p_role IS NULL OR p.role = p_role)
+    ),
+    counted AS (
+        SELECT f.*, COUNT(*) OVER() AS total_count
+        FROM filtered f
+    )
+    SELECT c.id, c.email, c.role, c.created_at, c.total_count
+    FROM counted c
+    ORDER BY
+        CASE WHEN p_sort = 'role_asc' THEN c.role END ASC,
+        CASE WHEN p_sort = 'role_desc' THEN c.role END DESC,
+        CASE WHEN p_sort = 'newest' THEN c.created_at END DESC,
+        c.created_at DESC
+    OFFSET v_offset
+    LIMIT v_limit;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.backoffice_list_profiles(uuid, integer, integer, text, text, text)
+TO anon, authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.backoffice_list_orders(
+    p_admin_user_id uuid,
+    p_page integer DEFAULT 1,
+    p_limit integer DEFAULT 20
+)
+RETURNS TABLE (
+    id uuid,
+    user_id uuid,
+    status text,
+    total_amount numeric,
+    created_at timestamptz,
+    payment_method text,
+    payment_id text,
+    payer jsonb,
+    payment_code text,
+    payment_url text,
+    payment_expiration timestamptz,
+    user_email text,
+    total_count bigint
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_offset integer := GREATEST((COALESCE(p_page, 1) - 1) * COALESCE(p_limit, 20), 0);
+    v_limit integer := GREATEST(COALESCE(p_limit, 20), 1);
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM public.profiles
+        WHERE profiles.id = p_admin_user_id
+          AND lower(coalesce(profiles.role, '')) = 'admin'
+    ) THEN
+        RAISE EXCEPTION 'Apenas usuários com role admin podem listar todos os pedidos';
+    END IF;
+
+    RETURN QUERY
+    WITH counted AS (
+        SELECT
+            o.id,
+            o.user_id,
+            o.status,
+            o.total_amount,
+            o.created_at,
+            o.payment_method,
+            o.payment_id,
+            o.payer,
+            o.payment_code,
+            o.payment_url,
+            o.payment_expiration,
+            p.email AS user_email,
+            COUNT(*) OVER() AS total_count
+        FROM public.orders o
+        LEFT JOIN public.profiles p ON p.id = o.user_id
+    )
+    SELECT
+        c.id,
+        c.user_id,
+        c.status,
+        c.total_amount,
+        c.created_at,
+        c.payment_method,
+        c.payment_id,
+        c.payer,
+        c.payment_code,
+        c.payment_url,
+        c.payment_expiration,
+        c.user_email,
+        c.total_count
+    FROM counted c
+    ORDER BY c.created_at DESC
+    OFFSET v_offset
+    LIMIT v_limit;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.backoffice_list_orders(uuid, integer, integer)
+TO anon, authenticated, service_role;
+
 -- 3. PROFILES: Usuário vê/edita o seu; Backend total.
 CREATE POLICY "Users can view own profile" ON profiles FOR SELECT USING (auth.uid() = id);
 CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (auth.uid() = id);

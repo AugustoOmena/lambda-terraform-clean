@@ -1,7 +1,3 @@
-import os
-
-import requests
-
 from shared.database import get_supabase_client
 from schemas import ProfileFilter
 
@@ -12,13 +8,23 @@ class ProfileRepository:
     def __init__(self):
         self.db = get_supabase_client()
     
-    def list_all(self, filters: ProfileFilter, authorization_header: str | None = None) -> dict:
+    def list_all(
+        self,
+        filters: ProfileFilter,
+        authorization_header: str | None = None,
+        admin_user_id: str | None = None,
+    ) -> dict:
         """
         Lista perfis com filtros, paginação e ordenação.
         
         Retorna:
             { "data": [...], "count": N }
         """
+        if admin_user_id:
+            rpc_result = self._list_all_via_rpc(filters, admin_user_id)
+            if rpc_result is not None:
+                return rpc_result
+
         # 1. Inicia query base
         query = self.db.table("profiles").select("*", count="exact")
         
@@ -55,72 +61,36 @@ class ProfileRepository:
         if data:
             return {"data": data, "count": count}
 
-        # Fallback para ambientes com key anon + RLS bloqueando listagem de perfis.
-        # Usa service role quando disponível para garantir resposta no backoffice.
-        rest_result = self._list_all_via_rest(filters, authorization_header=authorization_header)
-        if rest_result is not None:
-            return rest_result
-
         return {
             "data": data,
             "count": count,  # Total de registros (sem paginação)
         }
 
-    def _list_all_via_rest(
-        self, filters: ProfileFilter, authorization_header: str | None = None
+    def _list_all_via_rpc(
+        self,
+        filters: ProfileFilter,
+        admin_user_id: str,
     ) -> dict | None:
-        url = os.environ.get("SUPABASE_URL")
-        api_key = (
-            os.environ.get("SUPABASE_ANON_KEY")
-            or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-            or os.environ.get("SUPABASE_KEY")
-        )
-        if not url or not api_key:
-            return None
-        auth = (authorization_header or "").strip()
-        if auth and not auth.lower().startswith("bearer "):
-            auth = ""
-
-        sort_mapping = {
-            "newest": ("created_at", True),  # desc
-            "role_asc": ("role", False),     # asc
-            "role_desc": ("role", True),     # desc
-        }
-        sort_column, desc = sort_mapping.get(filters.sort, ("created_at", True))
-        start = (filters.page - 1) * filters.limit
-
-        params = {
-            "select": "*",
-            "order": f"{sort_column}.{'desc' if desc else 'asc'}",
-            "limit": filters.limit,
-            "offset": start,
-        }
-        if filters.email:
-            params["email"] = f"ilike.*{filters.email}*"
-        if filters.role:
-            params["role"] = f"eq.{filters.role}"
-
         try:
-            res = requests.get(
-                f"{url.rstrip('/')}/rest/v1/profiles",
-                params=params,
-                headers={
-                    "apikey": api_key,
-                    "Authorization": auth or f"Bearer {api_key}",
-                    "Prefer": "count=exact",
+            response = self.db.rpc(
+                "backoffice_list_profiles",
+                {
+                    "p_admin_user_id": admin_user_id,
+                    "p_page": filters.page,
+                    "p_limit": filters.limit,
+                    "p_email": filters.email,
+                    "p_role": filters.role,
+                    "p_sort": filters.sort,
                 },
-                timeout=15,
             )
-            if res.status_code != 200:
-                return None
-            total = 0
-            content_range = res.headers.get("Content-Range", "")
-            if "/" in content_range:
-                try:
-                    total = int(content_range.split("/")[-1])
-                except ValueError:
-                    total = 0
-            return {"data": res.json() or [], "count": total}
+            rows = response.data or []
+            total = int(rows[0]["total_count"]) if rows else 0
+            data = []
+            for row in rows:
+                item = dict(row)
+                item.pop("total_count", None)
+                data.append(item)
+            return {"data": data, "count": total}
         except Exception:
             return None
     

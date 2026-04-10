@@ -8,14 +8,23 @@ class ProfileService:
     def __init__(self):
         self.repo = ProfileRepository()
     
-    def list_profiles(self, filters: ProfileFilter, authorization_header: str | None = None) -> dict:
+    def list_profiles(
+        self,
+        filters: ProfileFilter,
+        authorization_header: str | None = None,
+        admin_user_id: str | None = None,
+    ) -> dict:
         """
         Lista perfis com filtros e paginação.
         
         Returns:
             { "data": [...], "count": N }
         """
-        return self.repo.list_all(filters, authorization_header=authorization_header)
+        return self.repo.list_all(
+            filters,
+            authorization_header=authorization_header,
+            admin_user_id=admin_user_id,
+        )
     
     def update_profile(self, payload: ProfileUpdate) -> dict:
         """
