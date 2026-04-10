@@ -17,7 +17,12 @@ def get_supabase_client() -> Client:
     global _client
     if not _client:
         url = os.environ.get("SUPABASE_URL")
-        key = os.environ.get("SUPABASE_KEY")
+        # Prefer explicit service role for backend lambdas.
+        key = (
+            os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+            or os.environ.get("SUPABASE_KEY")
+            or os.environ.get("SUPABASE_ANON_KEY")
+        )
         if not url or not key:
             raise ValueError("Configurações do Supabase ausentes (ENV VARS)")
         _client = create_client(url, key)
