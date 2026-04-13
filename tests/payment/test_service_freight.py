@@ -3,6 +3,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 
+from src.payment import service as payment_service
 from src.payment.service import PaymentService
 from src.payment.schemas import PaymentInput, Payer, Identification, Item
 from src.shared.melhor_envio import MelhorEnvioAPIError
@@ -12,14 +13,16 @@ from src.shared.melhor_envio import MelhorEnvioAPIError
 def mock_repository():
     with patch("src.payment.service.PaymentRepository") as mock_repo_class:
         mock_instance = MagicMock()
+        mock_instance.get_variant_stock.return_value = None
         mock_repo_class.return_value = mock_instance
         yield mock_instance
 
 
 @pytest.fixture
 def mock_mercadopago():
-    with patch("src.payment.service.mercadopago.SDK") as mock_mp:
-        yield mock_mp
+    with patch("mercadopago.SDK") as mock_sdk:
+        with patch("mercadopago.config.RequestOptions", MagicMock):
+            yield mock_sdk
 
 
 def _payload(frete: float = 25.90, cep: str = "01310100", frete_service: str = "jadlog_package") -> PaymentInput:
@@ -65,6 +68,7 @@ class TestPaymentServiceFreightValidation:
             assert result is not None
             mock_get_quote.assert_called_once()
             call_cep, call_products = mock_get_quote.call_args[0]
+            assert mock_get_quote.call_args.kwargs.get("timeout_sec") == payment_service._PAYMENT_QUOTE_TIMEOUT_SEC
             assert call_cep == "01310100"
             assert len(call_products) == 1
             assert call_products[0]["quantity"] == 1

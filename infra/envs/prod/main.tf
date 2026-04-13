@@ -96,6 +96,7 @@ module "payment_lambda" {
   function_name = "loja-omena-payment"
   handler       = "handler.lambda_handler"
   source_dir    = "../../../src/payment"
+  # API Gateway HTTP API ~30s máx na integração Lambda; timeout da função alinha com esse teto.
   timeout     = 30
   memory_size = 128
 

@@ -1,4 +1,6 @@
 import os
+import time
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any
 
@@ -22,6 +24,12 @@ DEFAULT_LENGTH_CM = 20
 DEFAULT_WEIGHT_KG = Decimal("0.3")
 FREIGHT_TOLERANCE = Decimal("0.15")
 
+# API Gateway HTTP API: integração Lambda costuma ter teto ~30s; a soma sequencial (frete + MP + DB + Firebase)
+# não pode estourar isso; ajuste estes valores se o provedor for sistematicamente mais lento.
+_PAYMENT_QUOTE_TIMEOUT_SEC = 8.0
+_MP_CREATE_TIMEOUT_SEC = 16.0
+_FIREBASE_SYNC_TIMEOUT_SEC = 5.0
+
 
 class PaymentService:
     def __init__(self) -> None:
@@ -34,6 +42,14 @@ class PaymentService:
 
     def process_payment(self, payload):
         # 0. Validação de frete: pacote único com soma das quantidades (igual ao frontend).
+        t0 = time.perf_counter()
+
+        def _log_stage(stage: str) -> None:
+            logger.info(
+                "payment_timing",
+                extra={"stage": stage, "elapsed_ms": round((time.perf_counter() - t0) * 1000)},
+            )
+
         total_qty = sum(item.quantity for item in payload.items)
         products = [
             {
@@ -46,11 +62,12 @@ class PaymentService:
             }
         ]
         try:
-            opcoes = get_quote(payload.cep, products)
+            opcoes = get_quote(payload.cep, products, timeout_sec=_PAYMENT_QUOTE_TIMEOUT_SEC)
         except MelhorEnvioAPIError as e:
             raise MelhorEnvioAPIError(f"Frete: não foi possível validar com a transportadora. {e}") from e
         if not opcoes:
             raise ValueError("Frete: nenhuma opção de frete disponível para o CEP informado.")
+        _log_stage("after_quote")
         frete_enviado = Decimal(str(payload.frete)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         frete_service_hint = (payload.frete_service or "").strip()
 
@@ -179,13 +196,25 @@ class PaymentService:
             if payload.issuer_id:
                 payment_data["issuer_id"] = payload.issuer_id
 
-        # 3. Envia MP
+        # 3. Envia MP (timeout explícito: SDK pode bloquear além do teto do API Gateway ~30s)
         request_options = self._mp.config.RequestOptions()
         request_options.custom_headers = {
             'x-idempotency-key': f"{payload.user_id}-{final_transaction_amount}-{payload.payment_method_id}" 
         }
 
-        payment_response = self.mp.payment().create(payment_data, request_options)
+        def _mp_create() -> dict:
+            return self.mp.payment().create(payment_data, request_options)
+
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            fut = pool.submit(_mp_create)
+            try:
+                payment_response = fut.result(timeout=_MP_CREATE_TIMEOUT_SEC)
+            except FuturesTimeout:
+                raise MercadoPagoAPIError(
+                    "Timeout ao contatar Mercado Pago. Tente novamente em instantes.",
+                    {},
+                )
+        _log_stage("after_mp")
         response = payment_response["response"]
         if not isinstance(response, dict):
             response = {}
@@ -257,18 +286,33 @@ class PaymentService:
             shipping_service=shipping_service_canonical,
             shipping_amount=float(shipping_amount_canonical),
         )
-        
+        _log_stage("after_order")
+
         # 6. Baixa Estoque
         self.repo.update_stock(payload.items)
+        _log_stage("after_stock")
 
-        # 7. Sincroniza produtos vendidos no Firebase (formato consolidado com variantes)
-        # Import tardio: firebase_admin pesa no cold start e na memória de pico.
-        from shared.firebase import set_product_consolidated
+        # 7. Firebase: best-effort com teto; não pode bloquear a resposta (API Gateway ~30s total).
+        def _firebase_sync() -> None:
+            from shared.firebase import set_product_consolidated
 
-        for product_id in {item.id for item in payload.items}:
-            payload_fb = self.repo.get_product_with_variants(product_id)
-            if payload_fb:
-                set_product_consolidated(payload_fb)
+            for product_id in {item.id for item in payload.items}:
+                payload_fb = self.repo.get_product_with_variants(product_id)
+                if payload_fb:
+                    set_product_consolidated(payload_fb)
+
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            fut = pool.submit(_firebase_sync)
+            try:
+                fut.result(timeout=_FIREBASE_SYNC_TIMEOUT_SEC)
+            except FuturesTimeout:
+                logger.error(
+                    "Firebase sync excedeu o tempo; pedido já persistido no Supabase",
+                    extra={"timeout_sec": _FIREBASE_SYNC_TIMEOUT_SEC},
+                )
+            except Exception as e:
+                logger.exception("Firebase sync falhou: %s", e)
+        _log_stage("after_firebase")
 
         # 8. Retorno
         result = {

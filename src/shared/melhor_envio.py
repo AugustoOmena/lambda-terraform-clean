@@ -108,7 +108,12 @@ def _parse_response(body: dict[str, Any]) -> list[dict[str, Any]]:
     return options
 
 
-def get_quote(cep_destino: str, products: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def get_quote(
+    cep_destino: str,
+    products: list[dict[str, Any]],
+    *,
+    timeout_sec: float | None = None,
+) -> list[dict[str, Any]]:
     """
     Call Melhor Envio calculate API.
 
@@ -116,6 +121,8 @@ def get_quote(cep_destino: str, products: list[dict[str, Any]]) -> list[dict[str
         cep_destino: Destination postal code (8 digits).
         products: List of dicts with width, height, length (cm), weight (kg),
                   quantity, and optional insurance_value (default 0). Optional "id" per product.
+        timeout_sec: Timeout HTTP (segundos). Padrão ``REQUEST_TIMEOUT_SEC``. Pagamento deve usar valor
+            menor para caber no teto ~30s do API Gateway HTTP + MP + Supabase + Firebase.
 
     Returns:
         List of dicts with keys: transportadora, preco, prazo_entrega_dias, service (id do serviço Melhor Envio).
@@ -123,6 +130,7 @@ def get_quote(cep_destino: str, products: list[dict[str, Any]]) -> list[dict[str
     Raises:
         MelhorEnvioAPIError: On missing env, connection/timeout or API error.
     """
+    http_timeout = float(timeout_sec) if timeout_sec is not None else float(REQUEST_TIMEOUT_SEC)
     base = (os.environ.get("MELHOR_ENVIO_API_URL") or DEFAULT_API_BASE).rstrip("/")
     url = f"{base}{CALCULATE_PATH}"
     token = _env("MELHOR_ENVIO_TOKEN", "")
@@ -174,7 +182,7 @@ def get_quote(cep_destino: str, products: list[dict[str, Any]]) -> list[dict[str
 
     try:
         with urllib.request.urlopen(
-            req, timeout=REQUEST_TIMEOUT_SEC, context=ssl.create_default_context()
+            req, timeout=http_timeout, context=ssl.create_default_context()
         ) as resp:
             if resp.status != 200:
                 raw = resp.read().decode("utf-8", errors="replace")
