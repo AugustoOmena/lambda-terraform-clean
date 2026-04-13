@@ -205,15 +205,25 @@ class PaymentService:
         def _mp_create() -> dict:
             return self.mp.payment().create(payment_data, request_options)
 
-        with ThreadPoolExecutor(max_workers=1) as pool:
-            fut = pool.submit(_mp_create)
+        # Não usar ``with ThreadPoolExecutor``: no __exit__ o shutdown espera todas as threads.
+        # Se o SDK do MP bloquear além de ``result(timeout=...)``, a thread órfã faria a Lambda
+        # esperar até o teto de 30s (API Gateway + timeout da função).
+        pool_mp = ThreadPoolExecutor(max_workers=1)
+        try:
+            fut = pool_mp.submit(_mp_create)
             try:
                 payment_response = fut.result(timeout=_MP_CREATE_TIMEOUT_SEC)
             except FuturesTimeout:
+                logger.error(
+                    "Mercado Pago: chamada excedeu o prazo; encerrando executor sem aguardar a thread",
+                    extra={"timeout_sec": _MP_CREATE_TIMEOUT_SEC},
+                )
                 raise MercadoPagoAPIError(
                     "Timeout ao contatar Mercado Pago. Tente novamente em instantes.",
                     {},
                 )
+        finally:
+            pool_mp.shutdown(wait=False)
         _log_stage("after_mp")
         response = payment_response["response"]
         if not isinstance(response, dict):
@@ -301,8 +311,9 @@ class PaymentService:
                 if payload_fb:
                     set_product_consolidated(payload_fb)
 
-        with ThreadPoolExecutor(max_workers=1) as pool:
-            fut = pool.submit(_firebase_sync)
+        pool_fb = ThreadPoolExecutor(max_workers=1)
+        try:
+            fut = pool_fb.submit(_firebase_sync)
             try:
                 fut.result(timeout=_FIREBASE_SYNC_TIMEOUT_SEC)
             except FuturesTimeout:
@@ -312,6 +323,8 @@ class PaymentService:
                 )
             except Exception as e:
                 logger.exception("Firebase sync falhou: %s", e)
+        finally:
+            pool_fb.shutdown(wait=False)
         _log_stage("after_firebase")
 
         # 8. Retorno
