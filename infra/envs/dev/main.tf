@@ -158,12 +158,13 @@ module "products_lambda" {
   ssm_app_secrets_prefix = local.ssm_prefix
 
   environment_variables = {
-    SUPABASE_URL            = data.aws_ssm_parameter.app["supabase_url"].value
-    SUPABASE_KEY            = data.aws_ssm_parameter.app["supabase_key"].value
-    MELHOR_ENVIO_TOKEN      = data.aws_ssm_parameter.app["melhor_envio_token"].value
-    CEP_ORIGEM              = data.aws_ssm_parameter.app["cep_origem"].value
-    SSM_APP_SECRETS_PREFIX  = local.ssm_prefix
-    POWERTOOLS_SERVICE_NAME = "products"
+    SUPABASE_URL                 = data.aws_ssm_parameter.app["supabase_url"].value
+    SUPABASE_KEY                 = data.aws_ssm_parameter.app["supabase_key"].value
+    SUPABASE_SERVICE_ROLE_KEY    = data.aws_ssm_parameter.app["supabase_service_role_key"].value
+    MELHOR_ENVIO_TOKEN           = data.aws_ssm_parameter.app["melhor_envio_token"].value
+    CEP_ORIGEM                   = data.aws_ssm_parameter.app["cep_origem"].value
+    SSM_APP_SECRETS_PREFIX       = local.ssm_prefix
+    POWERTOOLS_SERVICE_NAME      = "products"
   }
 
   tags = { Project = "LojaOmena", Env = "Prod" }

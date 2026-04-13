@@ -7,12 +7,15 @@ _client: Client = None
 def get_supabase_client() -> Client:
     """Singleton usado pelo servidor.
 
-    Para **listar todos** os perfis (GET /usuarios), **SUPABASE_KEY** deve ser a chave
-    **service_role** (RLS não bloqueia). Com apenas **anon**, a listagem fica vazia.
+    **CRUD com RLS (ex.: products):** defina **SUPABASE_SERVICE_ROLE_KEY** (service_role
+    no dashboard Supabase). Com só **anon** em **SUPABASE_KEY**, inserts em tabelas
+    protegidas falham (42501) porque o cliente PostgREST não é ``service_role``.
 
-    Para **checar admin** no backoffice quando a Lambda só tem anon: use também
-    **SUPABASE_ANON_KEY** + header **Authorization** Bearer (repositório chama o REST
-    como o front faz).
+    Para **listar todos** os perfis (GET /usuarios), **SUPABASE_KEY** como service_role
+    ou **SUPABASE_SERVICE_ROLE_KEY** preenchida evita listagem vazia por RLS.
+
+    Backoffice com Lambda só **anon**: **SUPABASE_ANON_KEY** + ``Authorization: Bearer``
+    (JWT do usuário), como no front.
     """
     global _client
     if not _client:
