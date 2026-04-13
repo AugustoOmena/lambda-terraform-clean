@@ -4,6 +4,7 @@ from aws_lambda_powertools.utilities.typing import LambdaContext
 
 from shared.melhor_envio import MelhorEnvioAPIError
 from shared.responses import http_response
+from exceptions import MercadoPagoAPIError, PaymentDeclinedError
 from schemas import PaymentInput
 from service import PaymentService
 
@@ -40,6 +41,30 @@ def lambda_handler(event: dict, context: LambdaContext):
     except MelhorEnvioAPIError as e:
         logger.warning("API frete: %s", e)
         return http_response(502, {"error": str(e)})
+    except PaymentDeclinedError as e:
+        logger.warning(
+            "Pagamento recusado ou não concluído",
+            extra={
+                "payment_id": e.mp_response.get("id"),
+                "mp_status": e.mp_response.get("status"),
+                "status_detail": e.mp_response.get("status_detail"),
+            },
+        )
+        return http_response(
+            422,
+            {
+                "error": str(e),
+                "mp_status": e.mp_response.get("status"),
+                "status_detail": e.mp_response.get("status_detail"),
+                "payment_id": e.mp_response.get("id"),
+            },
+        )
+    except MercadoPagoAPIError as e:
+        logger.warning("Falha na API Mercado Pago: %s", e, extra={"mp_response": e.response})
+        return http_response(
+            502,
+            {"error": str(e), "details": e.response},
+        )
     except Exception as e:
         logger.exception("Erro crítico no processamento")
         return http_response(500, {"error": str(e)})

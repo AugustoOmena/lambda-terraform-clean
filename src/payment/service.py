@@ -6,9 +6,15 @@ from aws_lambda_powertools import Logger
 from shared.firebase import set_product_consolidated
 from shared.melhor_envio import MelhorEnvioAPIError, get_quote
 
+from exceptions import MercadoPagoAPIError, PaymentDeclinedError
 from repository import PaymentRepository
 
 logger = Logger(service="payment")
+
+# Após HTTP 200/201 do MP, só estes status geram pedido + baixa de estoque.
+_MP_STATUSES_PERSIST_ORDER = frozenset(
+    {"approved", "pending", "in_process", "authorized"}
+)
 
 # Pacote único padrão para cotação (alinhado ao frontend até haver dimensões por produto).
 DEFAULT_WIDTH_CM = 16
@@ -178,26 +184,54 @@ class PaymentService:
 
         payment_response = self.mp.payment().create(payment_data, request_options)
         response = payment_response["response"]
+        if not isinstance(response, dict):
+            response = {}
 
-        if payment_response["status"] not in [200, 201]:
+        http_st = payment_response.get("status")
+        if http_st not in (200, 201):
             error_response = response
             print(f"Erro do Provedor: {error_response}")
             logger.error("Erro do provedor de pagamento", extra={"response": error_response})
-            error_msg = response.get("message", "Erro MP")
-            causes = response.get("cause") or []
+            error_msg = error_response.get("message", "Erro MP")
+            causes = error_response.get("cause") or []
             if causes:
                 first_cause = causes[0] if isinstance(causes, list) else causes
                 desc = first_cause.get("description", "") if isinstance(first_cause, dict) else str(first_cause)
                 if desc:
                     error_msg = f"{error_msg} - {desc}"
-            code = response.get("error") or response.get("code") or ""
+            code = error_response.get("error") or error_response.get("code") or ""
             err_str = str(error_response).lower()
             if "invalid_parameter" in str(code).lower() or "invalid_parameter" in error_msg.lower():
                 if "payer" in err_str or "first_name" in err_str or "last_name" in err_str or "name" in err_str:
                     raise ValueError(
                         "Nome do pagador inválido. Verifique first_name e last_name (evite caracteres especiais ou campos vazios)."
                     )
-            raise Exception(error_msg)
+            raise MercadoPagoAPIError(error_msg, error_response)
+
+        mp_pay_status = response.get("status")
+        if mp_pay_status in ("rejected", "cancelled"):
+            logger.warning(
+                "Pagamento não aprovado pelo Mercado Pago",
+                extra={
+                    "payment_id": response.get("id"),
+                    "mp_status": mp_pay_status,
+                    "status_detail": response.get("status_detail"),
+                },
+            )
+            raise PaymentDeclinedError(response)
+        if mp_pay_status is not None and mp_pay_status not in _MP_STATUSES_PERSIST_ORDER:
+            logger.warning(
+                "Status de pagamento inesperado do Mercado Pago; não persistindo pedido",
+                extra={
+                    "payment_id": response.get("id"),
+                    "mp_status": mp_pay_status,
+                    "status_detail": response.get("status_detail"),
+                },
+            )
+            raise PaymentDeclinedError(
+                response,
+                public_message="Não foi possível concluir o pagamento. Tente novamente ou use outro método.",
+            )
 
         # 4. Extrai dados PIX/boleto para o usuário copiar depois
         payment_code = None

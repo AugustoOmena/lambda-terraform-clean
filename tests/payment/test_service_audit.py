@@ -11,6 +11,7 @@ def mock_repository():
     """Mock do PaymentRepository para isolar testes da auditoria de preços."""
     with patch("src.payment.service.PaymentRepository") as mock_repo_class:
         mock_instance = MagicMock()
+        mock_instance.get_variant_stock.return_value = None
         mock_repo_class.return_value = mock_instance
         yield mock_instance
 

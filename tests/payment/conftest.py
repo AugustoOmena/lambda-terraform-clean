@@ -17,10 +17,17 @@ _safe_firebase = MagicMock()
 _safe_firebase.decrement_products_quantity = lambda items: None
 sys.modules["shared.firebase"] = _safe_firebase
 
-# Garante que "from schemas import" e "from service import" no handler de payment resolvam para payment
-for _name, _file in (("schemas", "schemas.py"), ("service", "service.py")):
+# Garante que imports no estilo Lambda (schemas, service, exceptions) apontem para src/payment/*
+# e que src.payment.exceptions seja o mesmo objeto de módulo (evita except que não casa nos testes).
+for _name, _file in (
+    ("schemas", "schemas.py"),
+    ("service", "service.py"),
+    ("exceptions", "exceptions.py"),
+):
     _spec = importlib.util.spec_from_file_location(_name, _root / "src" / "payment" / _file)
     if _spec and _spec.loader:
         _mod = importlib.util.module_from_spec(_spec)
         sys.modules[_name] = _mod
         _spec.loader.exec_module(_mod)
+        if _name == "exceptions":
+            sys.modules["src.payment.exceptions"] = _mod

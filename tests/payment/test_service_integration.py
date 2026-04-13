@@ -2,6 +2,7 @@ import pytest
 from decimal import Decimal
 from unittest.mock import patch, MagicMock, call
 
+from src.payment.exceptions import MercadoPagoAPIError, PaymentDeclinedError
 from src.payment.service import PaymentService
 from src.payment.schemas import PaymentInput, Payer, Identification, Item
 
@@ -11,6 +12,8 @@ def mock_repository():
     """Mock do PaymentRepository para todos os métodos."""
     with patch("src.payment.service.PaymentRepository") as mock_repo_class:
         mock_instance = MagicMock()
+        # Sem variante explícita nos testes: usa estoque legado em products.stock / quantity.
+        mock_instance.get_variant_stock.return_value = None
         mock_repo_class.return_value = mock_instance
         yield mock_instance
 
@@ -280,13 +283,13 @@ class TestPaymentServiceIntegration:
         
         # Act & Assert
         service = PaymentService()
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(MercadoPagoAPIError) as exc_info:
             service.process_payment(valid_pix_payload)
-        
+
         error_msg = str(exc_info.value)
         assert "Bad Request" in error_msg
         assert "Invalid parameter: payer.email" in error_msg
-        
+
         # Verifica que create_order NÃO foi chamado
         mock_repository.create_order.assert_not_called()
         mock_repository.update_stock.assert_not_called()
@@ -316,10 +319,42 @@ class TestPaymentServiceIntegration:
         
         # Act & Assert
         service = PaymentService()
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(MercadoPagoAPIError) as exc_info:
             service.process_payment(valid_card_payload)
-        
+
         assert "Internal Server Error" in str(exc_info.value)
+        mock_repository.create_order.assert_not_called()
+        mock_repository.update_stock.assert_not_called()
+
+    def test_process_payment_card_rejected_201_does_not_create_order(
+        self,
+        mock_repository: MagicMock,
+        mock_mercadopago: MagicMock,
+        mock_get_quote,
+        valid_card_payload,
+    ) -> None:
+        """MP retorna HTTP 201 com status rejected (comum em cartão recusado)."""
+        mock_repository.get_product_price_and_stock.return_value = {
+            "id": 2,
+            "price": 150.00,
+            "stock": {"Único": 100},
+            "quantity": 100,
+        }
+        mock_payment_method = MagicMock()
+        mock_mercadopago.payment.return_value = mock_payment_method
+        mock_payment_method.create.return_value = {
+            "status": 201,
+            "response": {
+                "id": 123456,
+                "status": "rejected",
+                "status_detail": "cc_rejected_high_risk",
+                "message": "Pagamento recusado.",
+            },
+        }
+        service = PaymentService()
+        with pytest.raises(PaymentDeclinedError) as exc_info:
+            service.process_payment(valid_card_payload)
+        assert "Pagamento recusado" in str(exc_info.value)
         mock_repository.create_order.assert_not_called()
         mock_repository.update_stock.assert_not_called()
 

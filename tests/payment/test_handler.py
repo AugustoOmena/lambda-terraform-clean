@@ -182,6 +182,57 @@ class TestPaymentLambdaHandler:
         assert "error" in body
         assert "Erro Mercado Pago" in str(body["error"])
 
+    def test_handler_payment_declined_422(
+        self, mock_payment_service: MagicMock, mock_logger: MagicMock
+    ) -> None:
+        from src.payment.exceptions import PaymentDeclinedError
+
+        mock_payment_service.process_payment.side_effect = PaymentDeclinedError(
+            {"id": 1, "status": "rejected", "status_detail": "cc_rejected_high_risk", "message": "Pagamento recusado."}
+        )
+        event = _create_event({
+            "transaction_amount": 125.90,
+            "payment_method_id": "master",
+            "token": "tok",
+            "installments": 1,
+            "issuer_id": "12518",
+            "payer": {"email": "a@b.com", "identification": {"number": "12345678900"}},
+            "user_id": "user-1",
+            "items": [{"id": 1, "name": "P", "price": 100.00, "quantity": 1}],
+            "frete": 25.90,
+            "frete_service": "jadlog_package",
+            "cep": "01310100",
+        })
+        response = lambda_handler(event, None)
+        assert response["statusCode"] == 422
+        body = json.loads(response["body"])
+        assert body.get("status_detail") == "cc_rejected_high_risk"
+        assert "error" in body
+
+    def test_handler_mercadopago_api_error_502(
+        self, mock_payment_service: MagicMock, mock_logger: MagicMock
+    ) -> None:
+        from src.payment.exceptions import MercadoPagoAPIError
+
+        mock_payment_service.process_payment.side_effect = MercadoPagoAPIError(
+            "invalid_token", {"message": "invalid_token"}
+        )
+        event = _create_event({
+            "transaction_amount": 125.90,
+            "payment_method_id": "pix",
+            "installments": 1,
+            "payer": {"email": "a@b.com", "identification": {"number": "12345678900"}},
+            "user_id": "user-1",
+            "items": [{"id": 1, "name": "P", "price": 100.00, "quantity": 1}],
+            "frete": 25.90,
+            "frete_service": "jadlog_package",
+            "cep": "01310100",
+        })
+        response = lambda_handler(event, None)
+        assert response["statusCode"] == 502
+        body = json.loads(response["body"])
+        assert "invalid_token" in body.get("error", "")
+
     def test_handler_cors_options_returns_200_empty(
         self, mock_payment_service: MagicMock, mock_logger: MagicMock
     ) -> None:
