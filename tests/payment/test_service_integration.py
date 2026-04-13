@@ -28,16 +28,12 @@ def mock_get_quote():
 
 @pytest.fixture
 def mock_mercadopago():
-    """Mock do Mercado Pago SDK."""
-    with patch("src.payment.service.mercadopago") as mock_mp_module:
-        # Mock da classe SDK
-        mock_sdk_instance = MagicMock()
-        mock_mp_module.SDK.return_value = mock_sdk_instance
-        
-        # Mock do RequestOptions
-        mock_mp_module.config.RequestOptions = MagicMock
-        
-        yield mock_sdk_instance
+    """Mock do Mercado Pago SDK (import tardio em PaymentService.__init__)."""
+    with patch("mercadopago.SDK") as mock_sdk:
+        with patch("mercadopago.config.RequestOptions", MagicMock):
+            mock_sdk_instance = MagicMock()
+            mock_sdk.return_value = mock_sdk_instance
+            yield mock_sdk_instance
 
 
 @pytest.fixture

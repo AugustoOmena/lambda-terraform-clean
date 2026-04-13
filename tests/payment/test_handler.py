@@ -7,8 +7,8 @@ from src.payment.handler import lambda_handler
 
 @pytest.fixture
 def mock_payment_service():
-    """Mock da classe PaymentService para evitar lógica real."""
-    with patch("src.payment.handler.PaymentService") as mock_service_class:
+    """Mock da classe PaymentService para evitar lógica real (import tardio em handler)."""
+    with patch("service.PaymentService") as mock_service_class:
         mock_instance = MagicMock()
         mock_service_class.return_value = mock_instance
         yield mock_instance

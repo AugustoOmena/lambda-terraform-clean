@@ -97,6 +97,9 @@ module "payment_lambda" {
   function_name = "loja-omena-payment"
   handler       = "handler.lambda_handler"
   source_dir    = "../../../src/payment"
+  # Frete (até ~15s HTTP) + MP + Supabase + Firebase: o default de 10s estourava antes do fim do fluxo.
+  timeout     = 30
+  memory_size = 128
 
   layers = [
     aws_lambda_layer_version.main_dependencies.arn,

@@ -6,7 +6,6 @@ from shared.melhor_envio import MelhorEnvioAPIError
 from shared.responses import http_response
 from exceptions import MercadoPagoAPIError, PaymentDeclinedError
 from schemas import PaymentInput
-from service import PaymentService
 
 # Inicializa Logs Profissionais (JSON estruturado)
 logger = Logger(service="payment")
@@ -27,6 +26,9 @@ def lambda_handler(event: dict, context: LambdaContext):
         payload: PaymentInput = parse(event=event, model=PaymentInput)
         
         logger.info(f"Iniciando pagamento para Order de R$ {payload.transaction_amount}")
+
+        # Import tardio: reduz trabalho em cold start para OPTIONS e falhas de parse.
+        from service import PaymentService
 
         # 2. Execução
         service = PaymentService()

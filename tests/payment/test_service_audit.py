@@ -19,8 +19,9 @@ def mock_repository():
 @pytest.fixture
 def mock_mercadopago():
     """Mock do Mercado Pago SDK para focar apenas na auditoria."""
-    with patch("src.payment.service.mercadopago.SDK") as mock_mp:
-        yield mock_mp
+    with patch("mercadopago.SDK") as mock_mp:
+        with patch("mercadopago.config.RequestOptions", MagicMock):
+            yield mock_mp
 
 
 @pytest.fixture

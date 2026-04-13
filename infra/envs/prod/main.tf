@@ -96,6 +96,8 @@ module "payment_lambda" {
   function_name = "loja-omena-payment"
   handler       = "handler.lambda_handler"
   source_dir    = "../../../src/payment"
+  timeout     = 30
+  memory_size = 128
 
   layers = [
     aws_lambda_layer_version.main_dependencies.arn,

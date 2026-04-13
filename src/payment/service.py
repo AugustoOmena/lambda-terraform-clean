@@ -1,9 +1,8 @@
-import mercadopago
 import os
 from decimal import Decimal, ROUND_HALF_UP
+from typing import Any
 
 from aws_lambda_powertools import Logger
-from shared.firebase import set_product_consolidated
 from shared.melhor_envio import MelhorEnvioAPIError, get_quote
 
 from exceptions import MercadoPagoAPIError, PaymentDeclinedError
@@ -25,9 +24,13 @@ FREIGHT_TOLERANCE = Decimal("0.15")
 
 
 class PaymentService:
-    def __init__(self):
+    def __init__(self) -> None:
         self.repo = PaymentRepository()
-        self.mp = mercadopago.SDK(os.environ.get("MP_ACCESS_TOKEN"))
+        # Import tardio: SDK do Mercado Pago é pesado; OPTIONS no API Gateway não precisa carregar.
+        import mercadopago as _mp
+
+        self._mp = _mp
+        self.mp: Any = _mp.SDK(os.environ.get("MP_ACCESS_TOKEN"))
 
     def process_payment(self, payload):
         # 0. Validação de frete: pacote único com soma das quantidades (igual ao frontend).
@@ -177,7 +180,7 @@ class PaymentService:
                 payment_data["issuer_id"] = payload.issuer_id
 
         # 3. Envia MP
-        request_options = mercadopago.config.RequestOptions()
+        request_options = self._mp.config.RequestOptions()
         request_options.custom_headers = {
             'x-idempotency-key': f"{payload.user_id}-{final_transaction_amount}-{payload.payment_method_id}" 
         }
@@ -259,6 +262,9 @@ class PaymentService:
         self.repo.update_stock(payload.items)
 
         # 7. Sincroniza produtos vendidos no Firebase (formato consolidado com variantes)
+        # Import tardio: firebase_admin pesa no cold start e na memória de pico.
+        from shared.firebase import set_product_consolidated
+
         for product_id in {item.id for item in payload.items}:
             payload_fb = self.repo.get_product_with_variants(product_id)
             if payload_fb:
