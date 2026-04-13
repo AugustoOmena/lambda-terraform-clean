@@ -109,6 +109,7 @@ module "payment_lambda" {
     MP_ACCESS_TOKEN         = "TEST-3645506064282139-010508-daf199203ea82aa3e7ed6e2daf9e4edb-424720501"
     SUPABASE_URL            = data.aws_ssm_parameter.app["supabase_url"].value
     SUPABASE_KEY            = data.aws_ssm_parameter.app["supabase_key"].value
+    SUPABASE_SERVICE_ROLE_KEY = data.aws_ssm_parameter.app["supabase_service_role_key"].value
     MELHOR_ENVIO_TOKEN      = data.aws_ssm_parameter.app["melhor_envio_token"].value
     MELHOR_ENVIO_API_URL    = data.aws_ssm_parameter.app["melhor_envio_api_url"].value
     CEP_ORIGEM              = data.aws_ssm_parameter.app["cep_origem"].value
