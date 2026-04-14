@@ -2,7 +2,7 @@
 Handler for orders microservice.
 
 Routes:
-- GET /pedidos/{order_id}?user_id=...  Customer: full order detail
+- GET /pedidos/{order_id}?user_id=...  Customer: full order detail (user_id = dono do pedido). Backoffice: X-Backoffice: true + user_id = admin + Authorization (mesmo que na listagem).
 - GET /pedidos?user_id=...&page=&limit=  Customer: simplified list; Backoffice (X-Backoffice: true): list all if user role admin
 - POST /pedidos/{order_id}/solicitar-cancelamento  Customer: cancel/refund request (7 days)
 - PUT /pedidos/{order_id}  Backoffice: editar status (body {"status": "shipped"}) ou cancel/reembolso (header X-Backoffice: true)
@@ -41,6 +41,20 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
             if order_id:
                 if not user_id:
                     return http_response(400, {"error": "user_id obrigatório para ver detalhe do pedido"})
+                is_backoffice = (
+                    (event.get("headers") or {}).get("x-backoffice", "").lower() == "true"
+                    or (event.get("headers") or {}).get("X-Backoffice", "").lower() == "true"
+                )
+                if is_backoffice:
+                    try:
+                        result = service.get_order_detail_for_admin(
+                            order_id,
+                            user_id,
+                            authorization_header=get_authorization_header(event),
+                        )
+                    except PermissionError as e:
+                        return http_response(403, {"error": str(e)})
+                    return http_response(200, result)
                 result = service.get_order_detail(order_id, user_id)
                 return http_response(200, result)
             page = int(query_params.get("page", 1))

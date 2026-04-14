@@ -63,6 +63,24 @@ class OrderService:
         _enrich_order_payload(self.repo, order)
         return order
 
+    def get_order_detail_for_admin(
+        self,
+        order_id: str,
+        admin_user_id: str,
+        authorization_header: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Full order detail for backoffice (qualquer pedido). Exige role admin como na listagem."""
+        role = self.repo.get_profile_role(admin_user_id, authorization_header=authorization_header)
+        if role != "admin":
+            raise PermissionError("Apenas usuários com role admin podem ver detalhes de qualquer pedido")
+        order = self.repo.get_order_with_items(order_id, user_id=None)
+        if not order:
+            raise Exception("Pedido não encontrado")
+        refunds = self.repo.list_refund_requests_by_order(order_id)
+        order["refund_requests"] = refunds
+        _enrich_order_payload(self.repo, order)
+        return order
+
     def list_orders_by_customer(self, user_id: str, page: int = 1, limit: int = 20) -> dict[str, Any]:
         """List of orders by customer, each with items and user_email, shipping_address."""
         result = self.repo.list_orders_by_user(user_id, page=page, limit=limit)

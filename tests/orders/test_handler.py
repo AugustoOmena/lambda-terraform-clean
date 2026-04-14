@@ -70,3 +70,42 @@ def test_get_orders_admin_returns_user_email(mock_order_service: MagicMock) -> N
     assert body["data"][1]["user_email"] == "outro@example.com"
     assert body["count"] == 2
     mock_order_service.list_all_orders_for_admin.assert_called_once()
+
+
+def test_get_order_detail_backoffice_calls_admin_method(mock_order_service: MagicMock) -> None:
+    """GET /pedidos/{id} com X-Backoffice usa admin (user_id do admin, não do cliente)."""
+    mock_order_service.get_order_detail_for_admin.return_value = {
+        "id": "75a4a6e0-b3a9-4a1e-a908-169835bbd574",
+        "user_id": "customer-uuid",
+        "status": "approved",
+        "items": [],
+    }
+    event = {
+        "requestContext": {"http": {"method": "GET"}},
+        "pathParameters": {"proxy": "75a4a6e0-b3a9-4a1e-a908-169835bbd574"},
+        "queryStringParameters": {"user_id": "531d3a84-9a7b-450b-a307-0b93d5eed907"},
+        "headers": {"x-backoffice": "true", "Authorization": "Bearer token"},
+        "body": None,
+    }
+    response = lambda_handler(event, MagicMock())
+    assert response["statusCode"] == 200
+    body = json.loads(response["body"])
+    assert body["id"] == "75a4a6e0-b3a9-4a1e-a908-169835bbd574"
+    mock_order_service.get_order_detail_for_admin.assert_called_once()
+    mock_order_service.get_order_detail.assert_not_called()
+
+
+def test_get_order_detail_customer_calls_customer_method(mock_order_service: MagicMock) -> None:
+    """GET /pedidos/{id} sem backoffice: user_id deve ser o dono do pedido."""
+    mock_order_service.get_order_detail.return_value = {"id": "ord-1", "items": []}
+    event = {
+        "requestContext": {"http": {"method": "GET"}},
+        "pathParameters": {"proxy": "ord-1"},
+        "queryStringParameters": {"user_id": "customer-uuid"},
+        "headers": {},
+        "body": None,
+    }
+    response = lambda_handler(event, MagicMock())
+    assert response["statusCode"] == 200
+    mock_order_service.get_order_detail.assert_called_once_with("ord-1", "customer-uuid")
+    mock_order_service.get_order_detail_for_admin.assert_not_called()
