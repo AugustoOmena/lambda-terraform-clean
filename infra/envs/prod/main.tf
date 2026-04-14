@@ -98,7 +98,7 @@ module "payment_lambda" {
   source_dir    = "../../../src/payment"
   # API Gateway HTTP API ~30s máx na integração Lambda; timeout da função alinha com esse teto.
   timeout     = 30
-  memory_size = 128
+  memory_size = 512
 
   layers = [
     aws_lambda_layer_version.main_dependencies.arn,
