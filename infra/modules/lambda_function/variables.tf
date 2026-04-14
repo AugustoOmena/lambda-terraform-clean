@@ -20,7 +20,7 @@ variable "timeout" {
 variable "memory_size" {
   description = "Memória da Lambda em MB"
   type        = number
-  default     = 128
+  default     = 256
 }
 
 variable "ssm_app_secrets_prefix" {
