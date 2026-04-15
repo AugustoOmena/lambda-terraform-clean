@@ -118,7 +118,17 @@ class PaymentRepository:
             self.db.table("order_items").insert(items_data).execute()
             
         return res_order.data[0]
-    
+
+    def update_melhor_envio_order_id(self, order_id: str, melhor_envio_order_id: str) -> None:
+        """Persiste o ID do pedido no Melhor Envio após inclusão no carrinho (API 201/200)."""
+        res = (
+            self.db.table("orders")
+            .update({"melhor_envio_order_id": melhor_envio_order_id})
+            .eq("id", order_id)
+            .execute()
+        )
+        if not res.data:
+            raise Exception("Falha ao atualizar melhor_envio_order_id do pedido")
 
     def update_stock(self, order_items):
         """

@@ -79,7 +79,7 @@ resource "aws_apigatewayv2_api" "main" {
   cors_configuration {
     allow_origins = ["*"]
     allow_methods = ["POST", "GET", "OPTIONS", "PUT", "DELETE"]
-    allow_headers = ["content-type", "authorization", "x-idempotency-key", "x-backoffice"]
+    allow_headers = ["content-type", "authorization", "x-idempotency-key", "x-backoffice", "x-me-signature"]
     max_age       = 300
   }
 }
@@ -116,6 +116,7 @@ module "payment_lambda" {
     MELHOR_ENVIO_TOKEN      = data.aws_ssm_parameter.app["melhor_envio_token"].value
     MELHOR_ENVIO_API_URL    = data.aws_ssm_parameter.app["melhor_envio_api_url"].value
     CEP_ORIGEM              = data.aws_ssm_parameter.app["cep_origem"].value
+    ME_SENDER_PROFILE       = data.aws_ssm_parameter.app["me_sender_profile"].value
     SSM_APP_SECRETS_PREFIX  = local.ssm_prefix
     POWERTOOLS_SERVICE_NAME = "payment"
   }
@@ -356,6 +357,59 @@ resource "aws_lambda_permission" "api_gw_shipping" {
   function_name = module.shipping_lambda.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*/frete"
+}
+
+# --- 7b. MICROSERVIÇO: WEBHOOK (Melhor Envio) ---
+module "webhook_lambda" {
+  source = "../../modules/lambda_function"
+
+  function_name = "loja-omena-webhook"
+  handler       = "handler.lambda_handler"
+  source_dir    = "../../../src/webhook"
+  timeout       = 30
+  memory_size   = 256
+
+  layers = [
+    aws_lambda_layer_version.main_dependencies.arn,
+    aws_lambda_layer_version.shared_code.arn
+  ]
+
+  ssm_app_secrets_prefix = local.ssm_prefix
+
+  environment_variables = {
+    SUPABASE_URL                 = data.aws_ssm_parameter.app["supabase_url"].value
+    SUPABASE_KEY                 = data.aws_ssm_parameter.app["supabase_key"].value
+    SUPABASE_SERVICE_ROLE_KEY    = data.aws_ssm_parameter.app["supabase_service_role_key"].value
+    SMTP_HOST                    = var.smtp_host != "" ? var.smtp_host : data.aws_ssm_parameter.app["smtp_host"].value
+    SMTP_PORT                    = var.smtp_port != "" ? var.smtp_port : data.aws_ssm_parameter.app["smtp_port"].value
+    SMTP_USER                    = var.smtp_user != "" ? var.smtp_user : data.aws_ssm_parameter.app["smtp_user"].value
+    SMTP_PASS                    = var.smtp_pass != "" ? var.smtp_pass : data.aws_ssm_parameter.app["smtp_pass"].value
+    MELHOR_ENVIO_CLIENT_SECRET   = var.melhor_envio_client_secret != "" ? var.melhor_envio_client_secret : data.aws_ssm_parameter.app["melhor_envio_client_secret"].value
+    POWERTOOLS_SERVICE_NAME      = "webhook"
+  }
+
+  tags = { Project = "LojaOmena", Env = "Dev" }
+}
+
+resource "aws_apigatewayv2_integration" "webhook" {
+  api_id                 = aws_apigatewayv2_api.main.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = module.webhook_lambda.invoke_arn
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_route" "webhook" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /webhook"
+  target    = "integrations/${aws_apigatewayv2_integration.webhook.id}"
+}
+
+resource "aws_lambda_permission" "api_gw_webhook" {
+  statement_id  = "AllowExecutionFromAPIGatewayWebhook"
+  action        = "lambda:InvokeFunction"
+  function_name = module.webhook_lambda.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*/webhook"
 }
 
 # --- 8. TRIGGER: Cleanup imagens órfãs (diário 03:00 UTC = meia-noite BRT) ---

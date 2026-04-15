@@ -26,6 +26,10 @@ class Payer(BaseModel):
     first_name: Optional[str] = "Cliente"
     last_name: Optional[str] = "Desconhecido"
     identification: Identification
+    phone: Optional[str] = Field(
+        default=None,
+        description="Telefone (E.164 ou local); usado no carrinho Melhor Envio se preenchido",
+    )
     # NOVO: Endereço opcional
     address: Optional[Address] = None
 

@@ -17,6 +17,15 @@ locals {
     "melhor_envio_token",
     "cep_origem",
     "melhor_envio_api_url",
+    # SMTP (Twilio SendGrid) — mesmo tipo de credencial que o Supabase usa para Auth
+    "smtp_host",
+    "smtp_port",
+    "smtp_user",
+    "smtp_pass",
+    # Secret do aplicativo Melhor Envio (webhook HMAC)
+    "melhor_envio_client_secret",
+    # JSON do remetente para API /cart (nome, phone, email, document, address)
+    "me_sender_profile",
   ]
 }
 

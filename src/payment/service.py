@@ -1,11 +1,12 @@
+import json
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 from decimal import Decimal, ROUND_HALF_UP
-from typing import Any
+from typing import Any, Optional
 
 from aws_lambda_powertools import Logger
-from shared.melhor_envio import MelhorEnvioAPIError, get_quote
+from shared.melhor_envio import MelhorEnvioAPIError, add_to_cart, get_quote
 
 from exceptions import MercadoPagoAPIError, PaymentDeclinedError
 from repository import PaymentRepository
@@ -99,7 +100,10 @@ class PaymentService:
                 )
 
         # Fonte autoritativa: backend (Melhor Envio). Persistido no pedido para auditoria.
-        shipping_service_canonical = (opcao_escolhida.get("service") or "").strip() or None
+        _svc = opcao_escolhida.get("service")
+        shipping_service_canonical = str(_svc).strip() if _svc is not None else None
+        if shipping_service_canonical == "":
+            shipping_service_canonical = None
         shipping_amount_canonical = Decimal(str(opcao_escolhida["preco"])).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
         # 1. Auditoria de Preços e checagem de estoque (Supabase)
@@ -298,6 +302,9 @@ class PaymentService:
         )
         _log_stage("after_order")
 
+        self._maybe_add_melhor_envio_cart(str(order["id"]), payload, opcao_escolhida)
+        _log_stage("after_me_cart")
+
         # 6. Baixa Estoque
         self.repo.update_stock(payload.items)
         _log_stage("after_stock")
@@ -347,3 +354,105 @@ class PaymentService:
             result["ticket_url"] = trans_det.get("external_resource_url")
 
         return result
+
+    def _parse_me_sender_profile(self) -> Optional[dict[str, Any]]:
+        raw = (os.environ.get("ME_SENDER_PROFILE") or "").strip()
+        if not raw:
+            return None
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            logger.warning("ME_SENDER_PROFILE não é JSON válido; carrinho ME ignorado")
+            return None
+        return parsed if isinstance(parsed, dict) else None
+
+    def _build_me_recipient(self, payload: Any) -> Optional[dict[str, Any]]:
+        addr = payload.payer.address
+        if not addr:
+            return None
+        phone = (getattr(payload.payer, "phone", None) or "").strip()
+        if not phone:
+            phone = (os.environ.get("ME_DEFAULT_RECIPIENT_PHONE") or "").strip()
+        if not phone:
+            logger.info("Carrinho ME: telefone do destinatário ausente; defina payer.phone ou ME_DEFAULT_RECIPIENT_PHONE")
+            return None
+        name = f"{payload.payer.first_name or ''} {payload.payer.last_name or ''}".strip() or "Cliente"
+        return {
+            "name": name,
+            "phone": phone,
+            "email": payload.payer.email,
+            "document": payload.payer.identification.number,
+            "address": {
+                "postal_code": addr.zip_code,
+                "address": addr.street_name,
+                "number": addr.street_number,
+                "complement": (addr.complement or "")[:30] if addr.complement else "",
+                "district": addr.neighborhood,
+                "city": addr.city,
+                "state_abbr": addr.federal_unit,
+            },
+        }
+
+    def _maybe_add_melhor_envio_cart(
+        self,
+        order_id: str,
+        payload: Any,
+        opcao_escolhida: dict[str, Any],
+    ) -> None:
+        """Inclui a etiqueta no carrinho ME e persiste ``melhor_envio_order_id`` (não bloqueia o pagamento)."""
+        sender = self._parse_me_sender_profile()
+        recipient = self._build_me_recipient(payload)
+        if not sender or not recipient:
+            return
+        svc_raw = opcao_escolhida.get("service")
+        try:
+            service_id = int(str(svc_raw).strip())
+        except (TypeError, ValueError):
+            logger.warning(
+                "Carrinho ME: id do serviço não numérico; API de cotação deve retornar service inteiro",
+                extra={"service": svc_raw},
+            )
+            return
+        products = [
+            {
+                "name": item.name,
+                "quantity": int(item.quantity),
+                "unitary_value": float(item.price),
+            }
+            for item in payload.items
+        ]
+        total_qty = sum(int(item.quantity) for item in payload.items)
+        volumes = [
+            {
+                "height": int(DEFAULT_HEIGHT_CM),
+                "width": int(DEFAULT_WIDTH_CM),
+                "length": int(DEFAULT_LENGTH_CM),
+                "weight": round(float(DEFAULT_WEIGHT_KG) * max(1, total_qty), 3),
+            }
+        ]
+        insurance = sum(float(item.price) * int(item.quantity) for item in payload.items)
+        options = {
+            "insurance_value": round(insurance, 2),
+            "receipt": False,
+            "own_hand": False,
+        }
+        try:
+            cart_res = add_to_cart(
+                service_id,
+                sender,
+                recipient,
+                products,
+                volumes,
+                options=options,
+            )
+        except MelhorEnvioAPIError as e:
+            logger.warning("Carrinho Melhor Envio falhou (pedido já criado)", extra={"err": str(e)})
+            return
+        me_oid = cart_res.get("id")
+        if me_oid is None:
+            logger.warning("Resposta do carrinho ME sem id", extra={"cart_res_keys": list(cart_res.keys())})
+            return
+        try:
+            self.repo.update_melhor_envio_order_id(order_id, str(me_oid))
+        except Exception as e:
+            logger.exception("Falha ao persistir melhor_envio_order_id", extra={"order_id": order_id, "err": str(e)})

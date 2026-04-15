@@ -20,6 +20,12 @@ locals {
     "melhor_envio_token",
     "cep_origem",
     "melhor_envio_api_url",
+    "smtp_host",
+    "smtp_port",
+    "smtp_user",
+    "smtp_pass",
+    "melhor_envio_client_secret",
+    "me_sender_profile",
   ]
 }
 
