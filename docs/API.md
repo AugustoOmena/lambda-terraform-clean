@@ -288,27 +288,41 @@ Não enviar `total=true` e `order_item_ids` preenchido ao mesmo tempo.
 
 **Header obrigatório:** `x-backoffice: true`
 
-**Caso A — só status**
+**Caso A — só status de entrega**
 
 **Body (`OrderStatusUpdate`):**
 
 ```json
-{ "status": "shipped" }
+{ "delivery_status": "shipped" }
 ```
+
+(Compat: `status` no body é mapeado para `delivery_status` na Lambda.)
 
 **Resposta `200`:** pedido completo com itens e enriquecimentos.
 
-**Caso B — cancelamento / reembolso operado pelo backoffice**
+**Caso B — reembolso operado pelo backoffice**
 
 **Body (`BackofficeCancelInput`):**
 
-| Campo             | Tipo     | Descrição                                               |
-| ----------------- | -------- | ------------------------------------------------------- |
-| `refund_method`   | string   | Obrigatório: `"mp"` ou `"voucher"`                      |
-| `cancel_item_ids` | string[] | Opcional; IDs de `order_items`; vazio com `full_cancel` |
-| `full_cancel`     | bool     | Padrão `false`                                          |
+| Campo             | Tipo     | Obrigatório | Descrição |
+| ----------------- | -------- | ----------- | --------- |
+| `refund_method`   | string   | Sim         | **`"mp"`** no fluxo atual do backoffice. `"voucher"` permanece suportado no backend, sem uso no painel. |
+| `refund_amount`   | number   | Ver abaixo  | **Fluxo principal:** valor em R$ a reembolsar. Não enviar `cancel_item_ids` nem `full_cancel` junto. Teto no servidor: `(total_amount - shipping_amount) - soma(reembolsos já com status refunded)`. `order_refunds.order_item_ids` fica vazio. |
+| `full_cancel`     | bool     | Alternativa | Se `true` (e sem `refund_amount`): reembolsa o **saldo de mercadoria** ainda disponível (mesmo teto) e pode marcar entrega como cancelada. |
+| `cancel_item_ids` | string[] | Alternativa | Legado: IDs de linhas em `order_items`; a soma calculada não pode exceder o teto de mercadoria. |
 
-**Resposta `200`:** resultado do fluxo de cancel/reembolso.
+**Exemplo (reembolso parcial por valor):**
+
+```json
+{
+  "refund_method": "mp",
+  "refund_amount": 49.9
+}
+```
+
+**Resposta `200`:** resultado do fluxo (ex.: `amount`, `mp_refund_id`, `refund_request_id`, …).
+
+**Front do backoffice (fora deste repo):** um único campo numérico de valor; validar no cliente o mesmo teto usando `total_amount`, `shipping_amount` e a soma de `refund_requests` com `status === "refunded"` no detalhe do pedido (`GET /pedidos/{id}`).
 
 **`403`:** sem header backoffice.  
 **`400`:** body inválido ou ambíguo.

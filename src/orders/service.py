@@ -16,6 +16,29 @@ from schemas import BackofficeCancelInput, CancelRequestInput
 ORDER_COMPLETED_STATUSES = ("approved", "completed")
 CUSTOMER_CANCEL_DAYS = 7
 
+_MONEY_EPS = 0.005
+
+
+def _sum_refunded_merchandise(refunds: list[dict[str, Any]]) -> float:
+    """Soma amounts já extornados com sucesso (não inclui pending)."""
+    return round(
+        sum(float(r.get("amount") or 0) for r in refunds if r.get("status") == "refunded"),
+        2,
+    )
+
+
+def _merchandise_refund_cap(order: dict[str, Any], already_refunded: float) -> tuple[float, float, float]:
+    """
+    Retorna (restante_permitido, teto_mercadoria, ja_reembolsado).
+    teto_mercadoria = total_amount - frete (frete ausente => 0).
+    """
+    frete = float(order.get("shipping_amount") or 0)
+    total = float(order.get("total_amount") or 0)
+    teto = round(max(0.0, total - frete), 2)
+    ja = round(max(0.0, already_refunded), 2)
+    restante = round(max(0.0, teto - ja), 2)
+    return restante, teto, ja
+
 
 def _attach_items_to_orders(
     repo: OrderRepository,
@@ -220,28 +243,53 @@ class OrderService:
         payload: BackofficeCancelInput,
     ) -> dict[str, Any]:
         """
-        Backoffice: cancel items (or full order), trigger MP refund or issue voucher.
-        - full_cancel: mark order as cancelled; refund total via MP or voucher.
-        - cancel_item_ids: partial refund for those items; optionally set order status if all cancelled.
+        Backoffice: reembolso MP ou voucher.
+        - Fluxo principal: ``refund_amount`` + ``refund_method``; ``order_item_ids`` vazio; teto mercadoria.
+        - Legado: ``full_cancel`` (saldo mercadoria restante) ou ``cancel_item_ids`` (soma das linhas).
         """
         order = self.repo.get_order_with_items(order_id, user_id=None)
         if not order:
             raise Exception("Pedido não encontrado")
         mp_payment_id = order.get("mp_payment_id")
         items = order.get("items") or []
-        if payload.full_cancel:
-            amount = float(order.get("total_amount", 0))
+        refunds_existing = self.repo.list_refund_requests_by_order(order_id)
+        ja = _sum_refunded_merchandise(refunds_existing)
+        rem, teto, ja_display = _merchandise_refund_cap(order, ja)
+
+        if payload.refund_amount is not None:
+            amount = round(float(payload.refund_amount), 2)
+            if amount > rem + _MONEY_EPS:
+                raise ValueError(
+                    f"Valor acima do permitido. Máximo: R$ {rem:.2f} "
+                    f"(mercadoria até R$ {teto:.2f}, já reembolsado R$ {ja_display:.2f})."
+                )
+            item_ids: list[str] = []
+        elif payload.full_cancel:
+            if rem <= _MONEY_EPS:
+                raise ValueError(
+                    f"Não há saldo de mercadoria para reembolsar (máx. R$ {teto:.2f}, já R$ {ja_display:.2f})."
+                )
+            amount = rem
             item_ids = [str(i["id"]) for i in items]
         else:
             cancel_ids = payload.cancel_item_ids or []
             if not cancel_ids:
-                raise ValueError("Informe cancel_item_ids ou full_cancel=true")
+                raise ValueError("Informe cancel_item_ids ou full_cancel=true ou refund_amount")
             selected = self.repo.get_order_items_by_ids(order_id, cancel_ids)
             if len(selected) != len(cancel_ids):
                 raise Exception("Um ou mais itens não pertencem a este pedido")
-            amount = sum(
-                float(i.get("price_at_purchase") or i.get("price", 0)) * int(i.get("quantity", 0)) for i in selected
+            amount = round(
+                sum(
+                    float(i.get("price_at_purchase") or i.get("price", 0)) * int(i.get("quantity", 0))
+                    for i in selected
+                ),
+                2,
             )
+            if amount > rem + _MONEY_EPS:
+                raise ValueError(
+                    f"Soma dos itens (R$ {amount:.2f}) excede o máximo reembolsável em mercadoria: R$ {rem:.2f} "
+                    f"(teto R$ {teto:.2f}, já reembolsado R$ {ja_display:.2f})."
+                )
             item_ids = [str(i["id"]) for i in selected]
         ref = self.repo.insert_refund_request(
             order_id=order_id,
