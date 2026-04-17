@@ -54,7 +54,7 @@ def test_order_released_updates_in_process(
     status, payload = webhook_service.WebhookService().process_request(raw, {"x-me-signature": sig})
     assert status == 200
     assert payload.get("ok") is True
-    repo.update_order_status.assert_called_once_with("ord-1", "in_process")
+    repo.update_order_delivery_status.assert_called_once_with("ord-1", "in_process")
 
 
 @patch("webhook_me_service.send_shipped_notification")

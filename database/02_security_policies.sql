@@ -103,7 +103,8 @@ CREATE OR REPLACE FUNCTION public.backoffice_list_orders(
 RETURNS TABLE (
     id uuid,
     user_id uuid,
-    status text,
+    payment_status text,
+    delivery_status text,
     total_amount numeric,
     created_at timestamptz,
     payment_method text,
@@ -112,6 +113,10 @@ RETURNS TABLE (
     payment_code text,
     payment_url text,
     payment_expiration timestamptz,
+    melhor_envio_order_id text,
+    tracking_code text,
+    shipping_service text,
+    shipping_amount numeric,
     user_email text,
     total_count bigint
 )
@@ -137,7 +142,8 @@ BEGIN
         SELECT
             o.id,
             o.user_id,
-            o.status,
+            o.payment_status,
+            o.delivery_status,
             o.total_amount,
             o.created_at,
             o.payment_method,
@@ -146,6 +152,10 @@ BEGIN
             o.payment_code,
             o.payment_url,
             o.payment_expiration,
+            o.melhor_envio_order_id,
+            o.tracking_code,
+            o.shipping_service,
+            o.shipping_amount,
             p.email AS user_email,
             COUNT(*) OVER() AS total_count
         FROM public.orders o
@@ -154,7 +164,8 @@ BEGIN
     SELECT
         c.id,
         c.user_id,
-        c.status,
+        c.payment_status,
+        c.delivery_status,
         c.total_amount,
         c.created_at,
         c.payment_method,
@@ -163,6 +174,10 @@ BEGIN
         c.payment_code,
         c.payment_url,
         c.payment_expiration,
+        c.melhor_envio_order_id,
+        c.tracking_code,
+        c.shipping_service,
+        c.shipping_amount,
         c.user_email,
         c.total_count
     FROM counted c

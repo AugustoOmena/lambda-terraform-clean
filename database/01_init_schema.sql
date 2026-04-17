@@ -55,7 +55,8 @@ CREATE INDEX IF NOT EXISTS idx_product_variants_sku ON product_variants(sku);
 CREATE TABLE IF NOT EXISTS orders (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES profiles(id),
-    status TEXT DEFAULT 'pending'::text,
+    payment_status TEXT DEFAULT 'pending'::text,
+    delivery_status TEXT DEFAULT 'pending'::text,
     total_amount NUMERIC NOT NULL,
     payment_method TEXT,
     payment_id TEXT,
@@ -65,6 +66,30 @@ CREATE TABLE IF NOT EXISTS orders (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
+
+-- Migração: renomeia status legado para payment_status (quando existir)
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'orders'
+          AND column_name = 'status'
+    ) AND NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'orders'
+          AND column_name = 'payment_status'
+    ) THEN
+        ALTER TABLE orders RENAME COLUMN status TO payment_status;
+    END IF;
+END $$;
+
+-- Migração: garante colunas novas em instâncias já existentes
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_status TEXT DEFAULT 'pending'::text;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_status TEXT DEFAULT 'pending'::text;
 
 -- 4. Order Items
 CREATE TABLE IF NOT EXISTS order_items (
@@ -127,3 +152,7 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS tracking_code TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipping_service TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipping_amount NUMERIC;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS melhor_envio_order_id TEXT;
+
+-- Índices para correlação e consultas de frete/webhook
+CREATE INDEX IF NOT EXISTS idx_orders_melhor_envio_order_id ON orders(melhor_envio_order_id);
+CREATE INDEX IF NOT EXISTS idx_orders_tracking_code ON orders(tracking_code);

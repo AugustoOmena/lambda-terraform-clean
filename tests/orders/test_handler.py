@@ -41,7 +41,8 @@ def test_get_orders_admin_returns_user_email(mock_order_service: MagicMock) -> N
                 "id": "ord-1",
                 "user_id": "user-a",
                 "user_email": "comprador@example.com",
-                "status": "approved",
+                "payment_status": "approved",
+                "delivery_status": "pending",
                 "total_amount": 99.90,
                 "created_at": "2025-02-01T12:00:00Z",
                 "payment_method": "pix",
@@ -50,7 +51,8 @@ def test_get_orders_admin_returns_user_email(mock_order_service: MagicMock) -> N
                 "id": "ord-2",
                 "user_id": "user-b",
                 "user_email": "outro@example.com",
-                "status": "pending",
+                "payment_status": "pending",
+                "delivery_status": "pending",
                 "total_amount": 50.00,
                 "created_at": "2025-02-02T10:00:00Z",
                 "payment_method": "credit_card",
@@ -77,7 +79,8 @@ def test_get_order_detail_backoffice_calls_admin_method(mock_order_service: Magi
     mock_order_service.get_order_detail_for_admin.return_value = {
         "id": "75a4a6e0-b3a9-4a1e-a908-169835bbd574",
         "user_id": "customer-uuid",
-        "status": "approved",
+        "payment_status": "approved",
+        "delivery_status": "pending",
         "items": [],
     }
     event = {

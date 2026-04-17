@@ -20,8 +20,8 @@ def test_list_all_orders_adds_user_email_from_profiles(mock_db: MagicMock) -> No
     """list_all_orders fetches profiles by user_id and attaches user_email to each order."""
     orders_res = MagicMock()
     orders_res.data = [
-        {"id": "o1", "user_id": "u1", "status": "approved", "total_amount": 100.0},
-        {"id": "o2", "user_id": "u2", "status": "pending", "total_amount": 50.0},
+        {"id": "o1", "user_id": "u1", "payment_status": "approved", "delivery_status": "pending", "total_amount": 100.0},
+        {"id": "o2", "user_id": "u2", "payment_status": "pending", "delivery_status": "pending", "total_amount": 50.0},
     ]
     orders_res.count = 2
 
@@ -51,7 +51,8 @@ def test_list_all_orders_adds_user_email_from_profiles(mock_db: MagicMock) -> No
     mock_db.table.side_effect = table_side_effect
 
     repo = OrderRepository()
-    result = repo.list_all_orders(page=1, limit=20)
+    repo._list_all_orders_via_rpc = MagicMock(return_value=None)
+    result = repo.list_all_orders(admin_user_id="admin-1", page=1, limit=20)
 
     assert result["count"] == 2
     assert len(result["data"]) == 2

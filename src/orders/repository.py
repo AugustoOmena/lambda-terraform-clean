@@ -45,7 +45,7 @@ class OrderRepository:
         end = start + limit - 1
         res = (
             self.db.table("orders")
-            .select("id, user_id, status, total_amount, created_at, payment_method, payment_id, payer, payment_code, payment_url, payment_expiration", count="exact")
+            .select("id, user_id, payment_status, delivery_status, total_amount, created_at, payment_method, payment_id, payer, payment_code, payment_url, payment_expiration", count="exact")
             .eq("user_id", user_id)
             .order("created_at", desc=True)
             .range(start, end)
@@ -68,7 +68,7 @@ class OrderRepository:
         end = start + limit - 1
         res = (
             self.db.table("orders")
-            .select("id, user_id, status, total_amount, created_at, payment_method, payment_id, payer, payment_code, payment_url, payment_expiration", count="exact")
+            .select("id, user_id, payment_status, delivery_status, total_amount, created_at, payment_method, payment_id, payer, payment_code, payment_url, payment_expiration", count="exact")
             .order("created_at", desc=True)
             .range(start, end)
             .execute()
@@ -209,11 +209,11 @@ class OrderRepository:
             raise Exception("Falha ao atualizar solicitação de reembolso")
         return res.data[0]
 
-    def update_order_status(self, order_id: str, status: str) -> dict[str, Any]:
-        """Update order status (e.g. cancelled)."""
+    def update_order_delivery_status(self, order_id: str, delivery_status: str) -> dict[str, Any]:
+        """Update delivery status (e.g. shipped, delivered, cancelled)."""
         res = (
             self.db.table("orders")
-            .update({"status": status, "updated_at": datetime.now(timezone.utc).isoformat()})
+            .update({"delivery_status": delivery_status, "updated_at": datetime.now(timezone.utc).isoformat()})
             .eq("id", order_id)
             .execute()
         )
@@ -275,7 +275,7 @@ class OrderRepository:
             orders_res = requests.get(
                 f"{url.rstrip('/')}/rest/v1/orders",
                 params={
-                    "select": "id,user_id,status,total_amount,created_at,payment_method,payment_id,payer,payment_code,payment_url,payment_expiration",
+                    "select": "id,user_id,payment_status,delivery_status,total_amount,created_at,payment_method,payment_id,payer,payment_code,payment_url,payment_expiration",
                     "order": "created_at.desc",
                     "limit": limit,
                     "offset": start,

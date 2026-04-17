@@ -33,5 +33,5 @@ class BackofficeCancelInput(BaseModel):
 
 
 class OrderStatusUpdate(BaseModel):
-    """Atualização de status do pedido pelo backoffice."""
-    status: str = Field(..., min_length=1, description="Novo status (ex: pending, approved, shipped, cancelled)")
+    """Atualização de status de entrega do pedido pelo backoffice."""
+    delivery_status: str = Field(..., min_length=1, description="Novo status de entrega (ex: pending, in_process, shipped, delivered, cancelled)")

@@ -5,7 +5,7 @@ Routes:
 - GET /pedidos/{order_id}?user_id=...  Customer: full order detail (user_id = dono do pedido). Backoffice: X-Backoffice: true + user_id = admin + Authorization (mesmo que na listagem).
 - GET /pedidos?user_id=...&page=&limit=  Customer: simplified list; Backoffice (X-Backoffice: true): list all if user role admin
 - POST /pedidos/{order_id}/solicitar-cancelamento  Customer: cancel/refund request (7 days)
-- PUT /pedidos/{order_id}  Backoffice: editar status (body {"status": "shipped"}) ou cancel/reembolso (header X-Backoffice: true)
+- PUT /pedidos/{order_id}  Backoffice: editar status de entrega (body {"delivery_status": "shipped"}) ou cancel/reembolso (header X-Backoffice: true)
 """
 
 import json
@@ -98,15 +98,17 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
             if not is_backoffice:
                 return http_response(403, {"error": "Acesso restrito ao backoffice"})
             body = _body_json(event)
-            if "status" in body and "refund_method" not in body:
+            if "delivery_status" not in body and "status" in body:
+                body["delivery_status"] = body["status"]
+            if "delivery_status" in body and "refund_method" not in body:
                 payload = parse(event=body, model=OrderStatusUpdate)
-                result = service.update_order_status(order_id, payload.status)
+                result = service.update_order_delivery_status(order_id, payload.delivery_status)
                 return http_response(200, result)
             if "refund_method" in body and body.get("refund_method") is not None:
                 payload = parse(event=body, model=BackofficeCancelInput)
                 result = service.backoffice_cancel_and_refund(order_id, payload)
                 return http_response(200, result)
-            return http_response(400, {"error": "Envie {\"status\": \"...\"} para editar status ou payload de cancelamento/reembolso (refund_method, etc.)"})
+            return http_response(400, {"error": "Envie {\"delivery_status\": \"...\"} para editar entrega ou payload de cancelamento/reembolso (refund_method, etc.)"})
 
         return http_response(405, {"error": "Método não permitido"})
 

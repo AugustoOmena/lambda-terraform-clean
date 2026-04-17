@@ -110,11 +110,11 @@ class OrderService:
         _attach_items_to_orders(self.repo, result["data"], authorization_header=authorization_header)
         return result
 
-    def update_order_status(self, order_id: str, status: str) -> dict[str, Any]:
-        """Backoffice: update only status and updated_at; return full order with items."""
+    def update_order_delivery_status(self, order_id: str, delivery_status: str) -> dict[str, Any]:
+        """Backoffice: update delivery_status and return full order with items."""
         if not self.repo.get_order_by_id(order_id, user_id=None):
             raise Exception("Pedido não encontrado")
-        self.repo.update_order_status(order_id, status)
+        self.repo.update_order_delivery_status(order_id, delivery_status)
         order = self.repo.get_order_with_items(order_id, user_id=None)
         order["refund_requests"] = self.repo.list_refund_requests_by_order(order_id)
         _enrich_order_payload(self.repo, order)
@@ -122,7 +122,7 @@ class OrderService:
 
     def _order_completed_at(self, order: dict[str, Any]) -> Optional[datetime]:
         """Order is completed when status is approved/completed; use updated_at or created_at."""
-        if order.get("status") not in ORDER_COMPLETED_STATUSES:
+        if order.get("payment_status") not in ORDER_COMPLETED_STATUSES:
             return None
         raw = order.get("updated_at") or order.get("created_at")
         if not raw:
@@ -268,7 +268,7 @@ class OrderService:
             )
             result_refund = {"voucher": voucher, "status": "refunded"}
         if payload.full_cancel:
-            self.repo.update_order_status(order_id, "cancelled")
+            self.repo.update_order_delivery_status(order_id, "cancelled")
         return {
             "message": "Cancelamento e reembolso processados",
             "order_id": order_id,

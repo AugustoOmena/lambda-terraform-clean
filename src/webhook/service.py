@@ -76,7 +76,7 @@ class WebhookService:
 
         order_id = str(order["id"])
         if event == "order.released":
-            self.repo.update_order_status(order_id, "in_process")
+            self.repo.update_order_delivery_status(order_id, "in_process")
             return 200, {"ok": True, "order_id": order_id, "event": event}
 
         if event == "order.posted":
@@ -110,7 +110,7 @@ class WebhookService:
             return 200, {"ok": True, "order_id": order_id, "event": event}
 
         if event == "order.delivered":
-            self.repo.update_order_status(order_id, "delivered")
+            self.repo.update_order_delivery_status(order_id, "delivered")
             return 200, {"ok": True, "order_id": order_id, "event": event}
 
         return 200, {"ok": True, "ignored": True, "event": event}

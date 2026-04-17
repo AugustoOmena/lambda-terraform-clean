@@ -13,7 +13,7 @@ class WebhookRepository:
     def get_order_by_melhor_envio_id(self, melhor_envio_order_id: str) -> Optional[dict[str, Any]]:
         res = (
             self.db.table("orders")
-            .select("id, user_id, status, melhor_envio_order_id")
+            .select("id, user_id, payment_status, delivery_status, melhor_envio_order_id")
             .eq("melhor_envio_order_id", melhor_envio_order_id)
             .limit(1)
             .execute()
@@ -26,10 +26,10 @@ class WebhookRepository:
             return None
         return res.data[0].get("email")
 
-    def update_order_status(self, order_id: str, status: str) -> dict[str, Any]:
+    def update_order_delivery_status(self, order_id: str, delivery_status: str) -> dict[str, Any]:
         res = (
             self.db.table("orders")
-            .update({"status": status, "updated_at": datetime.now(timezone.utc).isoformat()})
+            .update({"delivery_status": delivery_status, "updated_at": datetime.now(timezone.utc).isoformat()})
             .eq("id", order_id)
             .execute()
         )
@@ -45,7 +45,7 @@ class WebhookRepository:
         shipping_service: Optional[str],
     ) -> dict[str, Any]:
         data: dict[str, Any] = {
-            "status": "shipped",
+            "delivery_status": "shipped",
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
         if tracking_code is not None:

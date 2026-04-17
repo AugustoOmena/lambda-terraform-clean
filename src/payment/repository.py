@@ -72,7 +72,8 @@ class PaymentRepository:
         order_data = {
             "user_id": payload.user_id,
             "total_amount": total_amount,
-            "status": mp_response.get("status"),
+            "payment_status": mp_response.get("status"),
+            "delivery_status": "pending",
             "mp_payment_id": str(mp_response.get("id")),
             "payment_method": payload.payment_method_id,
             "installments": payload.installments,
