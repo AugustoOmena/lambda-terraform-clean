@@ -16,7 +16,7 @@ class TestShippingItemInput:
         assert item.length == 11
         assert item.weight == Decimal("0.3")
         assert item.quantity == 1
-        assert item.insurance_value == Decimal("0")
+        assert item.insurance_value == Decimal("1")
 
     def test_item_quantity_default_one(self) -> None:
         item = ShippingItemInput(width=10, height=10, length=10, weight=0.5, quantity=2)

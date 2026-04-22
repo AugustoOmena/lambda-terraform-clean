@@ -59,7 +59,7 @@ class PaymentService:
                 "length": DEFAULT_LENGTH_CM,
                 "weight": DEFAULT_WEIGHT_KG,
                 "quantity": total_qty,
-                "insurance_value": 0,
+                "insurance_value": 1,
             }
         ]
         try:

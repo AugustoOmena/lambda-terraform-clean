@@ -44,9 +44,9 @@ class ShippingItemInput(BaseModel):
     weight: Decimal = Field(..., gt=0, description="Peso em kg (até 3 casas decimais, padrão Melhor Envio)")
     quantity: int = Field(default=1, ge=1, description="Quantidade")
     insurance_value: Decimal = Field(
-        default=Decimal("0"),
+        default=Decimal("1"),
         ge=0,
-        description="Valor declarado em R$ (opcional); use Decimal para alinhar ao Carrinho",
+        description="Valor declarado em R$ (opcional; padrão 1 para alinhar ao Melhor Envio); use Decimal para alinhar ao Carrinho",
     )
 
     @field_validator("width", "height", "length", mode="before")

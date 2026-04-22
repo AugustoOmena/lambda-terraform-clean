@@ -120,7 +120,7 @@ def get_quote(
     Args:
         cep_destino: Destination postal code (8 digits).
         products: List of dicts with width, height, length (cm), weight (kg),
-                  quantity, and optional insurance_value (default 0). Optional "id" per product.
+                  quantity, and optional insurance_value (default 1). Optional "id" per product.
         timeout_sec: Timeout HTTP (segundos). Padrão ``REQUEST_TIMEOUT_SEC``. Pagamento deve usar valor
             menor para caber no teto ~30s do API Gateway HTTP + MP + Supabase + Firebase.
 
@@ -158,7 +158,7 @@ def get_quote(
             "length": _dim_int(p["length"]),
             "weight": _weight_3(p["weight"]),
             "quantity": int(p.get("quantity", 1)),
-            "insurance_value": _money_2(p.get("insurance_value", 0)),
+            "insurance_value": _money_2(p.get("insurance_value", 1)),
         })
 
     body = {
@@ -291,7 +291,7 @@ def add_to_cart(
         "to": recipient,
         "products": products,
         "volumes": volumes,
-        "options": options or {"insurance_value": 0, "receipt": False, "own_hand": False},
+        "options": options or {"insurance_value": 1, "receipt": False, "own_hand": False},
     }
     return _api_request(CART_PATH, "POST", body)
 

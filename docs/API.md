@@ -352,7 +352,7 @@ Não enviar `total=true` e `order_item_ids` preenchido ao mesmo tempo.
 | `width`, `height`, `length` | int (> 0) | cm, inteiros (frações devem ser arredondadas para cima antes do envio) |
 | `weight`                    | number    | kg, até 3 casas decimais                                               |
 | `quantity`                  | int       | Padrão `1`, ≥ 1                                                        |
-| `insurance_value`           | number    | Padrão `0`, ≥ 0                                                        |
+| `insurance_value`           | number    | Padrão `1`, ≥ 0                                                        |
 
 **Resposta `200`:**
 
